@@ -1299,13 +1299,12 @@ function getWaterDepth(wx, wz) {
 }
 
 function updateDynamicTerrain() {
-  // 分帧重建进行中 → 每帧推进一批
-  tickTerrainRegen();
-  // 检查是否需要启动新重建
+  // 用同步方式一帧内完成重建，避免分帧过程中网格位置已变但顶点高度/法线尚未更新导致的闪烁
   if (!terrainRegen.active) {
     const dx = car.pos.x - terrainCenterX, dz = car.pos.z - terrainCenterZ;
     if (dx * dx + dz * dz > TERRAIN_REGEN_DIST * TERRAIN_REGEN_DIST) {
-      startTerrainRegen(car.pos.x, car.pos.z);
+      regenerateTerrainSync(car.pos.x, car.pos.z);
+      terrain.position.set(car.pos.x, 0, car.pos.z);
     }
   }
 }
