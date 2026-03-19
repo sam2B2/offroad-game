@@ -413,8 +413,8 @@ function getBiomeName(wx, wz) {
 
 // 特殊区域坐标（基于扇区布局）
 // 雪地扇区方向：正北(-PI/2)，冰湖在该方向~155m处
-const ICE_CENTER_X = Math.cos(BIOME_SECTOR_ANGLES.snow) * 90;
-const ICE_CENTER_Z = Math.sin(BIOME_SECTOR_ANGLES.snow) * 90;
+const ICE_CENTER_X = Math.cos(BIOME_SECTOR_ANGLES.snow) * 140;
+const ICE_CENTER_Z = Math.sin(BIOME_SECTOR_ANGLES.snow) * 140;
 const ICE_RADIUS = 85; // 大片冰湖（参考截图面积）
 
 // 雨林扇区方向：西南(3*PI/4)，泥潭在该方向不同距离处
@@ -435,25 +435,30 @@ function getSurfaceProperties(wx, wz) {
   let grip = 1.0, drag = 0;
 
   if (biome === 'snow') {
-    grip = 0.7;   // 雪地抓地力稍低
-    drag = 0.6;   // 雪地阻力略大
-    // 冰面区域
-    const distToIce = Math.sqrt((wx - ICE_CENTER_X) ** 2 + (wz - ICE_CENTER_Z) ** 2);
-    if (distToIce < ICE_RADIUS) {
-      const iceBlend = 1 - smoothstepGlobal(ICE_RADIUS - 8, ICE_RADIUS, distToIce);
-      grip = grip * (1 - iceBlend) + 0.2 * iceBlend;
-      drag = drag * (1 - iceBlend) + 0.1 * iceBlend;
+    grip = 0.75;  // 雪地抓地力稍低
+    drag = 0.18;  // 雪地阻力轻微（可感知但不吃力）
+    // 冰面区域（腰果形，精确匹配视觉边界，不提前生效）
+    {
+      const _nx = (wx - ICE_CENTER_X) / 1.4, _nz = (wz - ICE_CENTER_Z) / 0.9;
+      const _dn = Math.sqrt(_nx * _nx + _nz * _nz);
+      const _ia = Math.atan2(_nz, _nx);
+      const _ind = 0.38 * Math.max(0, -Math.cos(_ia)) * (1 + 0.3 * Math.sin(_ia));
+      const _ir = ICE_RADIUS * (1.0 - _ind);
+      if (_dn < _ir) {
+        // 只有进入视觉冰面范围才生效，grip 提高到 0.42（有附着力但会漂移）
+        grip = 0.42; drag = 0.04;
+      }
     }
   } else if (biome === 'jungle') {
-    grip = 0.8;   // 潮湿地面
-    drag = 0.4;
+    grip = 0.85;  // 潮湿地面
+    drag = 0.15;
     // 泥潭区域
     for (const pit of MUD_PITS) {
       const dist = Math.sqrt((wx - pit.x) ** 2 + (wz - pit.z) ** 2);
       if (dist < pit.r) {
         const mudBlend = 1 - smoothstepGlobal(pit.r - 5, pit.r, dist);
         grip = grip * (1 - mudBlend) + 0.45 * mudBlend;
-        drag = drag * (1 - mudBlend) + 2.0 * mudBlend;
+        drag = drag * (1 - mudBlend) + 1.2 * mudBlend;
       }
     }
   }
@@ -462,16 +467,16 @@ function getSurfaceProperties(wx, wz) {
     const depth = typeof getWaterDepth === 'function' ? getWaterDepth(wx, wz) : 0;
     if (depth <= 0) {
       // 干沙滩
-      grip = 0.85; drag = 0.3;
+      grip = 0.88; drag = 0.12;
     } else if (depth < 0.3) {
       // 浅水（可行驶，阻力增加）
-      grip = 0.6; drag = 1.0 + depth * 3;
+      grip = 0.65; drag = 0.5 + depth * 2;
     } else if (depth < 0.8) {
       // 较深水（勉强可行驶，严重减速）
-      grip = 0.4; drag = 3.0 + depth * 5;
+      grip = 0.4; drag = 2.0 + depth * 3;
     } else {
       // 深水（极大阻力）
-      grip = 0.2; drag = 8.0;
+      grip = 0.2; drag = 5.0;
     }
   }
 
@@ -792,21 +797,22 @@ function getTerrainHeight(wx, wz) {
 
   h *= flattenFactor;
 
-  // 冰湖区域：地形高度提升到冰面高度（车子在冰面上行驶，不掉下去）
+  // 冰湖区域：地形高度提升到冰面高度（腰果形，与视觉网格一致）
   {
     const iceDx = wx - ICE_CENTER_X, iceDz = wz - ICE_CENTER_Z;
-    const iceDist = Math.sqrt(iceDx * iceDx + iceDz * iceDz);
-    // 用和冰面mesh相同的噪声扰动半径判断边界
-    const iceAngle = Math.atan2(iceDz, iceDx);
-    const rNoise = noise2D(Math.cos(iceAngle) * 3 + 500, Math.sin(iceAngle) * 3 + 500) * 0.2
-                 + noise2D(Math.cos(iceAngle) * 7 + 800, Math.sin(iceAngle) * 7 + 800) * 0.1;
-    const iceR = ICE_RADIUS * (0.75 + 0.25 * (1 + rNoise));
-    if (iceDist < iceR) {
-      // 冰面高度 = 周围雪地的平均高度（平坦的冰面）
-      const iceLevel = BIOME_BASE.snow + 2.0; // 固定冰面高度
-      // 在冰湖内部完全平坦，边缘平滑过渡
-      const edgeBlend = 1 - smoothstepGlobal(iceR - 8, iceR, iceDist);
-      h = h * (1 - edgeBlend) + iceLevel * edgeBlend;
+    const nx = iceDx / 1.4, nz = iceDz / 0.9;
+    const distNorm = Math.sqrt(nx * nx + nz * nz);
+    const iceAngle = Math.atan2(nz, nx);
+    const indent = 0.38 * Math.max(0, -Math.cos(iceAngle)) * (1 + 0.3 * Math.sin(iceAngle));
+    const iceR = ICE_RADIUS * (1.0 - indent);
+    const iceLevel = BIOME_BASE.snow + 2.0;
+    if (distNorm <= iceR) {
+      // 视觉边界以内：地形完全平坦在冰面高度，不允许低于此值
+      h = iceLevel;
+    } else if (distNorm < iceR * 1.5) {
+      // 视觉边界以外的过渡带：从冰面高度平滑降回自然地形（加宽避免南侧陡坡）
+      const t = smoothstepGlobal(iceR, iceR * 1.5, distNorm);
+      h = iceLevel * (1 - t) + h * t;
     }
   }
 
@@ -1267,35 +1273,67 @@ function getWaterDepth(wx, wz) {
   return Math.max(0, SEA_LEVEL - terrH);
 }
 
-// ---- 冰面视觉（不规则形状，平坦冰面）----
+// ---- 冰面视觉（腰果形，平坦冰面）----
 {
-  const iceLevel = BIOME_BASE.snow + 2.0; // 和getTerrainHeight中的冰面高度一致
-  const iceSegs = 64;
-  const iceGeo = new THREE.BufferGeometry();
-  const verts = []; const indices = [];
-  // 中心点（平坦）
-  verts.push(0, 0, 0);
-  for (let i = 0; i <= iceSegs; i++) {
-    const a = (i / iceSegs) * Math.PI * 2;
-    const rNoise = noise2D(Math.cos(a) * 3 + 500, Math.sin(a) * 3 + 500) * 0.2
-                 + noise2D(Math.cos(a) * 7 + 800, Math.sin(a) * 7 + 800) * 0.1;
-    const r = ICE_RADIUS * (0.75 + 0.25 * (1 + rNoise));
-    // 冰面平坦，所有顶点Y=0（相对于iceMesh.position.y）
-    verts.push(Math.cos(a) * r, 0, Math.sin(a) * r);
-    if (i > 0) indices.push(0, i, i + 1);
+  const iceLevel = BIOME_BASE.snow + 2.0;
+
+  // 腰果/肾形路径：椭圆 + 凹陷侧 + 边缘噪声扰动
+  const N = 96;
+  const shape = new THREE.Shape();
+  const shapePts = [];
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * Math.PI * 2;
+    // 椭圆拉伸：长轴X，短轴Z
+    const elongX = 1.4, elongZ = 0.9;
+    // 凹陷：在 t ≈ π（负X侧）内凹，形成腰果弯曲侧
+    const indent = 0.38 * Math.max(0, -Math.cos(t)) * (1 + 0.3 * Math.sin(t));
+    // 自然边缘扰动（幅度小，只做有机感）
+    const rNoise = noise2D(Math.cos(t) * 3 + 500, Math.sin(t) * 3 + 500) * 0.04
+                 + noise2D(Math.cos(t) * 9 + 800, Math.sin(t) * 9 + 800) * 0.02;
+    const r = ICE_RADIUS * (1.0 - indent + rNoise);
+    shapePts.push(new THREE.Vector2(Math.cos(t) * r * elongX, Math.sin(t) * r * elongZ));
   }
-  iceGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  iceGeo.setIndex(indices);
-  iceGeo.computeVertexNormals();
+  shape.setFromPoints(shapePts);
+
+  const iceGeo = new THREE.ShapeGeometry(shape, 64);
+  iceGeo.rotateX(-Math.PI / 2); // XY平面 → XZ平面
 
   const iceMat = new THREE.MeshStandardMaterial({
-    color: 0x88bbdd, transparent: true, opacity: 0.55,
-    roughness: 0.05, metalness: 0.3, side: THREE.DoubleSide,
+    color: 0x66aadd,   // 明显的冰蓝色，与雪地白色区分
+    transparent: false,
+    roughness: 0.30,
+    metalness: 0.10,
+    side: THREE.DoubleSide,
+    depthWrite: true,
   });
   const iceMesh = new THREE.Mesh(iceGeo, iceMat);
-  iceMesh.position.set(ICE_CENTER_X, iceLevel + 0.05, ICE_CENTER_Z); // 冰面刚好在地形高度上方
+  iceMesh.position.set(ICE_CENTER_X, iceLevel + 0.05, ICE_CENTER_Z);
+  iceMesh.renderOrder = 0;
   iceMesh.receiveShadow = true;
   scene.add(iceMesh);
+
+  // ---- 冰块散布（少量漂浮在冰面上的冰块）----
+  const iceChunkMat = new THREE.MeshStandardMaterial({
+    color: 0xaaddff, roughness: 0.25, metalness: 0.05,
+  });
+  const _iceChunkDefs = [
+    { ox: 20, oz: 10, sx: 8, sz: 5, ry: 0.4 },
+    { ox: -30, oz: 18, sx: 6, sz: 9, ry: 1.1 },
+    { ox: 10, oz: -25, sx: 10, sz: 4, ry: 2.3 },
+    { ox: -15, oz: -12, sx: 5, sz: 7, ry: 0.9 },
+    { ox: 35, oz: -5, sx: 7, sz: 6, ry: 1.7 },
+    { ox: -5, oz: 30, sx: 9, sz: 4, ry: 0.2 },
+  ];
+  for (const d of _iceChunkDefs) {
+    // 不规则形状：用缩放后的八面体上半部近似扁平冰块
+    const cGeo = new THREE.CylinderGeometry(d.sx * 0.5, d.sz * 0.45, 0.6, 6, 1);
+    const chunk = new THREE.Mesh(cGeo, iceChunkMat);
+    chunk.position.set(ICE_CENTER_X + d.ox, iceLevel + 0.35, ICE_CENTER_Z + d.oz);
+    chunk.rotation.y = d.ry;
+    chunk.scale.set(1, 1, d.sz / d.sx); // 非等比，显得自然
+    chunk.castShadow = true;
+    scene.add(chunk);
+  }
 }
 
 function updateDynamicTerrain() {
@@ -1862,7 +1900,7 @@ function updateRain(dt) {
 // VEHICLE STATE
 // ============================================================
 const car = {
-  speed: 0, heading: 0, steer: 0,
+  speed: 0, heading: 0, velAngle: 0, steer: 0,
   throttle: 0, brake: 0, handbrake: false,
   pos: new THREE.Vector3(0, 0, 0),
   prevSpeed: 0,
@@ -2204,8 +2242,19 @@ function updatePhysics(dt) {
   car.heading += headingRate * dt;
   car.lateralAccel = headingRate * car.speed;
 
-  car.pos.x += Math.sin(car.heading) * car.speed * dt;
-  car.pos.z += Math.cos(car.heading) * car.speed * dt;
+  // ---- 冰面漂移：速度方向角(velAngle)在冰面上慢速追向车头方向 ----
+  if (car._surfaceGrip !== undefined && car._surfaceGrip < 0.6) {
+    // 冰面：速度方向缓慢对齐车头，产生漂移感
+    const lagFactor = car._surfaceGrip * 2.8;
+    let vd = car.heading - car.velAngle;
+    while (vd > Math.PI) vd -= Math.PI * 2;
+    while (vd < -Math.PI) vd += Math.PI * 2;
+    car.velAngle += vd * Math.min(1, lagFactor * dt);
+  } else {
+    car.velAngle = car.heading; // 普通路面：瞬时对齐，无漂移
+  }
+  car.pos.x += Math.sin(car.velAngle) * car.speed * dt;
+  car.pos.z += Math.cos(car.velAngle) * car.speed * dt;
 
   // ================================================================
   // 硬桥悬架 — 载荷转移计算（惯性力 → 弹簧压缩位移）
@@ -3604,18 +3653,29 @@ function updateMinimap() {
   }
 
   // 叠加特殊区域（冰湖、泥潭）
-  // 冰湖（明显的冰蓝色区域）
-  const iceRelX = (ICE_CENTER_X - cx) * scale + MINIMAP_SIZE / 2;
-  const iceRelY = (ICE_CENTER_Z - cz) * scale + MINIMAP_SIZE / 2;
-  const iceR = ICE_RADIUS * scale;
-  if (iceRelX > -iceR - 20 && iceRelX < MINIMAP_SIZE + iceR + 20 && iceRelY > -iceR - 20 && iceRelY < MINIMAP_SIZE + iceR + 20) {
-    ctx.beginPath();
-    ctx.arc(iceRelX, iceRelY, iceR, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(140,200,235,0.5)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(180,220,250,0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+  // 冰湖（腰果形，与3D冰面形状一致）
+  {
+    const iceRelX = (ICE_CENTER_X - cx) * scale + MINIMAP_SIZE / 2;
+    const iceRelY = (ICE_CENTER_Z - cz) * scale + MINIMAP_SIZE / 2;
+    const iceR = ICE_RADIUS * scale;
+    if (iceRelX > -iceR * 2 && iceRelX < MINIMAP_SIZE + iceR * 2 && iceRelY > -iceR * 2 && iceRelY < MINIMAP_SIZE + iceR * 2) {
+      const _N = 96, _eX = 1.4, _eZ = 0.9;
+      ctx.beginPath();
+      for (let i = 0; i <= _N; i++) {
+        const t = (i / _N) * Math.PI * 2;
+        const indent = 0.38 * Math.max(0, -Math.cos(t)) * (1 + 0.3 * Math.sin(t));
+        const r = iceR * (1.0 - indent);
+        const px = iceRelX + Math.cos(t) * r * _eX;
+        const py = iceRelY + Math.sin(t) * r * _eZ;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(100,170,220,0.55)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(160,210,245,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
   }
   // 泥潭
   for (const pit of MUD_PITS) {
@@ -4201,7 +4261,7 @@ function resetGame() {
   for (let i = 0; i < 4; i++) inventory[i] = null;
   updateInventoryUI();
   updateFuelUI();
-  car.speed = 0; car.heading = 0; car.steer = 0;
+  car.speed = 0; car.heading = 0; car.velAngle = 0; car.steer = 0;
   car.pos.set(0, 0, 0);
   car.gear = 0; car.rpm = 800;
   car.bodyRoll = 0; car.rollVel = 0; car.bodyPitch = 0; car.pitchVel = 0;
@@ -4695,7 +4755,16 @@ function spawnStuckNPC() {
   // 陷车表现：根据biome微倾+下沉
   let sinkY = 0, tiltX = 0, tiltZ = 0;
   if (biome === 'snow') {
-    sinkY = -0.4; tiltX = 0.08 + Math.random() * 0.1;
+    const _inx = (wx - ICE_CENTER_X) / 1.4, _inz = (wz - ICE_CENTER_Z) / 0.9;
+    const _iDn = Math.sqrt(_inx * _inx + _inz * _inz);
+    const _iAng = Math.atan2(_inz, _inx);
+    const _iInd = 0.38 * Math.max(0, -Math.cos(_iAng)) * (1 + 0.3 * Math.sin(_iAng));
+    if (_iDn < ICE_RADIUS * (1.0 - _iInd) * 1.05) {
+      // 冰湖上：不下沉，轻微打滑姿态，正常落在冰面
+      sinkY = 0; tiltX = 0.03; tiltZ = (Math.random() - 0.5) * 0.05;
+    } else {
+      sinkY = -0.4; tiltX = 0.08 + Math.random() * 0.1;
+    }
   } else if (biome === 'jungle') {
     sinkY = -0.5; tiltX = 0.1 + Math.random() * 0.12; tiltZ = (Math.random() - 0.5) * 0.1;
   } else { // desert
