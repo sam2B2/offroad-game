@@ -1170,13 +1170,11 @@ function tickTerrainRegen() {
     const edgeFade = 1 - smoothstepGlobal(TERRAIN_RADIUS - 30, TERRAIN_RADIUS, localDist);
     const h = getTerrainHeight(wx, wz);
     terrainPos.setY(i, h * edgeFade);
-    const c = computeVertexColor(wx, wz);
-    const fogR = 0.85, fogG = 0.78, fogB = 0.63;
-    colorAttr.setXYZ(i,
-      c.r * edgeFade + fogR * (1 - edgeFade),
-      c.g * edgeFade + fogG * (1 - edgeFade),
-      c.b * edgeFade + fogB * (1 - edgeFade)
-    );
+    const bw = getBiomeWeights(wx, wz);
+    const r = 0.92 * bw.snow + 0.83 * bw.desert + 0.25 * bw.jungle;
+    const g = 0.94 * bw.snow + 0.63 * bw.desert + 0.52 * bw.jungle;
+    const b = 0.96 * bw.snow + 0.33 * bw.desert + 0.18 * bw.jungle;
+    colorAttr.setXYZ(i, r, g, b);
   }
 
   terrainRegen.cursor = end;
@@ -1202,9 +1200,11 @@ function regenerateTerrainSync(centerX, centerZ) {
     const edgeFade = 1 - smoothstepGlobal(TERRAIN_RADIUS - 30, TERRAIN_RADIUS, localDist);
     const h = getTerrainHeight(wx, wz);
     terrainPos.setY(i, h * edgeFade);
-    const c = computeVertexColor(wx, wz);
-    const fogR = 0.85, fogG = 0.78, fogB = 0.63;
-    colorAttr.setXYZ(i, c.r * edgeFade + fogR * (1 - edgeFade), c.g * edgeFade + fogG * (1 - edgeFade), c.b * edgeFade + fogB * (1 - edgeFade));
+    const bw = getBiomeWeights(wx, wz);
+    const r = 0.92 * bw.snow + 0.83 * bw.desert + 0.25 * bw.jungle;
+    const g = 0.94 * bw.snow + 0.63 * bw.desert + 0.52 * bw.jungle;
+    const b = 0.96 * bw.snow + 0.33 * bw.desert + 0.18 * bw.jungle;
+    colorAttr.setXYZ(i, r, g, b);
   }
   terrainPos.needsUpdate = true;
   colorAttr.needsUpdate = true;
