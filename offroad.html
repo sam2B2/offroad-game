@@ -5300,6 +5300,7 @@ updateAchieveBarUI();
 
 // 视频播放
 let gamePausedForVideo = false;
+let _animFrameId = null;
 window.playVideo = function(src) {
   const overlay = document.getElementById('videoOverlay');
   const player = document.getElementById('videoPlayer');
@@ -5307,6 +5308,8 @@ window.playVideo = function(src) {
   overlay.style.display = 'flex';
   player.play();
   gamePausedForVideo = true;
+  // 停止 WebGL 渲染循环，释放 GPU 给视频解码
+  if (_animFrameId !== null) { cancelAnimationFrame(_animFrameId); _animFrameId = null; }
 };
 window.closeVideo = function(e) {
   // 点击视频本身不关闭（让controls生效）
@@ -5316,6 +5319,8 @@ window.closeVideo = function(e) {
   player.pause(); player.src = '';
   overlay.style.display = 'none';
   gamePausedForVideo = false;
+  // 恢复游戏循环
+  if (_animFrameId === null) { clock.getDelta(); animate(); }
 };
 
 // 打卡检测+更新
@@ -5455,10 +5460,8 @@ let _calRenderTimer = 0;
 let _biomeUpdateTimer = 0;
 
 function animate() {
-  requestAnimationFrame(animate);
+  _animFrameId = requestAnimationFrame(animate);
   const rawDt = clock.getDelta();
-  // 视频播放时游戏暂停
-  if (gamePausedForVideo) { renderer.render(scene, camera); return; }
   const dt = rawDt;
   gameTime += dt;
 
