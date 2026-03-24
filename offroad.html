@@ -64,19 +64,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
 #lightControls button:hover{background:rgba(40,40,40,0.8);border-color:rgba(255,255,255,0.5);}
 #lightControls button.active{background:rgba(60,120,200,0.6);border-color:rgba(100,180,255,0.8);color:#fff;}
 #flipMsg{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Noto Sans SC',sans-serif;font-size:22px;font-weight:700;color:#d32f2f;text-align:center;pointer-events:none;opacity:0;transition:opacity 0.3s;line-height:1.8;text-shadow:0 1px 4px rgba(0,0,0,0.1);}
-#weatherCal{position:fixed;top:16px;right:16px;display:flex;gap:3px;align-items:center;pointer-events:none;z-index:20;font-family:'Noto Sans SC',monospace;}
-.cal-day{width:44px;padding:4px 0;border-radius:6px;text-align:center;font-size:9px;line-height:1.4;
-  background:rgba(20,20,20,0.6);color:rgba(200,200,200,0.75);backdrop-filter:blur(6px);
-  border:1.5px solid rgba(255,255,255,0.1);transition:all 0.4s;transform:scale(0.88);opacity:0.7;}
-.cal-day.today{width:56px;padding:7px 0;border-color:rgba(255,200,60,0.8);background:rgba(40,35,15,0.85);
-  color:#fff;transform:scale(1.1);opacity:1;box-shadow:0 0 12px rgba(255,200,60,0.25);z-index:1;}
-.cal-day.future{opacity:0.85;transform:scale(0.92);}
-.cal-day .day-num{font-size:12px;font-weight:700;}
-.cal-day .day-icon{font-size:18px;line-height:1.2;}
-.cal-day .day-label{font-size:7px;opacity:0.5;letter-spacing:0.5px;}
-.cal-day.today .day-num{font-size:15px;}
-.cal-day.today .day-icon{font-size:22px;}
-.cal-day.today .day-label{font-size:8px;opacity:0.8;}
+
 #minimap{position:fixed;top:16px;left:16px;pointer-events:none;z-index:20;}
 #minimap canvas{border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);box-shadow:0 2px 12px rgba(0,0,0,0.4);}
 #minimapLabel{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',monospace;
@@ -90,13 +78,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
 .fly-item{position:fixed;z-index:100;font-size:28px;pointer-events:none;transition:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));}
 #coinBar{position:fixed;top:18px;right:90px;display:flex;align-items:center;gap:6px;font-family:'Noto Sans SC',monospace;
   font-size:16px;color:#ffd700;text-shadow:0 1px 3px rgba(0,0,0,0.6);pointer-events:none;z-index:20;}
-#coinBar .coin-icon{font-size:22px;}
+#coinBar .coin-icon{width:48px;height:48px;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));}
 #coinBar .coin-count{font-weight:bold;}
 </style>
 </head>
 <body>
 
 <canvas id="gameCanvas"></canvas>
+<div id="fpsPanel" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:999;
+  font-family:monospace;font-size:13px;color:#0f0;background:rgba(0,0,0,0.7);padding:4px 12px;
+  border-radius:6px;pointer-events:none;white-space:pre;"></div>
 <div id="loading">加载模型中...</div>
 <div id="hud">
   <kbd>W</kbd>/<kbd>&uarr;</kbd> 前进 &nbsp;
@@ -127,10 +118,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
     </svg>
   </button>
 </div>
-<div id="dayNightToggle" style="position:fixed;top:16px;right:16px;display:flex;gap:6px;z-index:20;">
-  <button onclick="setDayTime(0.5)" style="padding:4px 12px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.2);background:rgba(20,20,20,0.6);color:#ffd080;font-size:14px;cursor:pointer;backdrop-filter:blur(4px);">☀️ 白天</button>
-  <button onclick="setDayTime(0.0)" style="padding:4px 12px;border-radius:6px;border:1.5px solid rgba(255,255,255,0.2);background:rgba(20,20,20,0.6);color:#8090cc;font-size:14px;cursor:pointer;backdrop-filter:blur(4px);">🌙 黑夜</button>
-</div>
 <div id="minimap"><canvas id="minimapCanvas" width="160" height="160"></canvas></div>
 <div id="gauges">
   <canvas id="tachGauge" width="180" height="180"></canvas>
@@ -138,14 +125,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
   <canvas id="speedGauge" width="180" height="180"></canvas>
 </div>
 <div id="gameOverlay"><div class="go-title">油料耗尽</div><div class="go-sub">游戏失败</div>
-  <div class="go-coins">🪙 <span id="goCoins">0</span></div>
+  <div class="go-coins"><svg width="28" height="28" viewBox="0 0 24 24" style="vertical-align:middle;"><circle cx="12" cy="12" r="11" fill="#ffd700" stroke="#b8860b" stroke-width="1.5"/><polygon points="12,3.5 13.8,9.2 19.8,9.2 14.9,12.8 16.7,18.5 12,14.8 7.3,18.5 9.1,12.8 4.2,9.2 10.2,9.2" fill="#b8860b"/></svg> <span id="goCoins">0</span></div>
   <div class="go-hint">按 <kbd style="padding:2px 8px;background:#555;border:1px solid #777;border-radius:3px;color:#fff;">R</kbd> 重置游戏</div></div>
 <div id="invTooltip"></div>
 <div id="rescueMsg"></div>
 <div id="checkpointMsg"></div>
 <div id="achieveWrap"><div id="achieveTitle"><span class="at-icon">📷</span> 打卡成就</div><div id="achieveBar"></div></div>
 <div id="videoOverlay" onclick="closeVideo(event)"><div class="vo-close" onclick="closeVideo(event)">✕</div><video id="videoPlayer" controls></video></div>
-<div id="coinBar"><span class="coin-icon">🪙</span><span class="coin-count" id="coinCount">0</span></div>
+<div id="coinBar"><svg class="coin-icon" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffd700" stroke="#b8860b" stroke-width="1.5"/><polygon points="12,3.5 13.8,9.2 19.8,9.2 14.9,12.8 16.7,18.5 12,14.8 7.3,18.5 9.1,12.8 4.2,9.2 10.2,9.2" fill="#b8860b"/></svg><span class="coin-count" id="coinCount">0</span></div>
 <div id="inventory">
   <div class="inv-slot" id="invSlot0"><span class="inv-icon"></span></div>
   <div class="inv-slot" id="invSlot1"><span class="inv-icon"></span></div>
@@ -172,12 +159,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const canvas = document.getElementById('gameCanvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(1); // 固定1x分辨率，大幅减少GPU像素填充
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.BasicShadowMap; // 最轻量的阴影模式
 
 const scene = new THREE.Scene();
 // 背景由天空球控制，不设纯色
@@ -268,9 +255,12 @@ function updateChaseCamera(dt) {
     }
   }
 
-  // 车速越快，FOV略增加（速度感）
-  camera.fov = 45 + speed * 0.15;
-  camera.updateProjectionMatrix();
+  // 车速越快，FOV略增加（速度感）— 仅在FOV变化显著时更新投影矩阵
+  const newFov = 45 + speed * 0.15;
+  if (Math.abs(newFov - camera.fov) > 0.1) {
+    camera.fov = newFov;
+    camera.updateProjectionMatrix();
+  }
 
   // ---- 平滑航向 ----
   // 摄像机不直接跟 car.heading，而是用 smoothHeading 做滞后跟随
@@ -290,9 +280,34 @@ function updateChaseCamera(dt) {
   // 地形高度
   const carTerrainY = typeof getTerrainHeight === 'function' ? getTerrainHeight(car.pos.x, car.pos.z) : 0;
 
+  // 救援镜头平滑过渡（camBlend: 0=默认镜头, 1=救援镜头）
+  const towCamTarget = (towState.active && towState.isValid && towState.npc) ? 1 : 0;
+  if (towState.camBlend < towCamTarget) {
+    towState.camBlend = Math.min(1, towState.camBlend + dt * 1.5); // ~0.7秒缓入
+  } else if (towState.camBlend > towCamTarget) {
+    towState.camBlend = Math.max(0, towState.camBlend - dt * 2.0); // ~0.5秒缓出
+  }
+  const tb = towState.camBlend;
+
+  let dist = chaseCam.distance;
+  let h = chaseCam.height + camPitch * 5;
+  let lookX = car.pos.x, lookZ = car.pos.z, lookY = carTerrainY + chaseCam.lookHeight;
+
+  if (tb > 0.001 && towState.npc) {
+    const npc = towState.npc;
+    const midX = (car.pos.x + npc.wx) / 2;
+    const midZ = (car.pos.z + npc.wz) / 2;
+    const sepDist = Math.sqrt((car.pos.x - npc.wx) ** 2 + (car.pos.z - npc.wz) ** 2);
+    const towDist = Math.max(chaseCam.distance, sepDist * 1.2 + 8);
+    const towH = Math.max(chaseCam.height * 1.3, sepDist * 0.6 + 10);
+    dist = dist * (1 - tb) + towDist * tb;
+    h = h * (1 - tb) + towH * tb;
+    lookX = lookX * (1 - tb) + midX * tb;
+    lookZ = lookZ * (1 - tb) + midZ * tb;
+    lookY = lookY * (1 - tb) + (carTerrainY + 1.5) * tb;
+  }
+
   // 目标位置
-  const dist = chaseCam.distance;
-  const h = chaseCam.height + camPitch * 5;
   _camTargetPos.set(
     car.pos.x + Math.sin(camYaw) * dist,
     Math.max(carTerrainY + 2, h + carTerrainY),
@@ -300,7 +315,7 @@ function updateChaseCamera(dt) {
   );
 
   // 目标看向点（看向点也用平滑位置，减少抖动）
-  _camTargetLook.set(car.pos.x, carTerrainY + chaseCam.lookHeight, car.pos.z);
+  _camTargetLook.set(lookX, lookY, lookZ);
 
   // 位置平滑跟随 — 比航向更慢，给出"沉重"的滞后感
   const posLerp = Math.min(1, (2.5 + speed * 0.15) * dt);
@@ -376,7 +391,9 @@ function _normAngle(a) {
   return a;
 }
 
-// biome权重：返回 { snow, desert, jungle } 各 0~1，总和=1
+// biome权重：返回预分配的静态对象 { snow, desert, jungle } 各 0~1，总和=1
+// 注意：返回值是共享的静态对象，调用者如需保留值请立即复制
+const _biomeWeightsResult = { snow: 0, desert: 0, jungle: 0 };
 function getBiomeWeights(wx, wz) {
   const dist = Math.sqrt(wx * wx + wz * wz);
   const angle = Math.atan2(wz, wx); // -PI ~ PI
@@ -399,8 +416,9 @@ function getBiomeWeights(wx, wz) {
   const wJungle  = Math.max(0, 1 - smoothstepGlobal(jungleHalf  - BIOME_TRANSITION, jungleHalf  + BIOME_TRANSITION, dJungle));
 
   const total = wSnow + wDesert + wJungle;
-  if (total < 0.001) return { snow: 0.5, desert: 0.25, jungle: 0.25 };
-  return { snow: wSnow / total, desert: wDesert / total, jungle: wJungle / total };
+  if (total < 0.001) { _biomeWeightsResult.snow = 0.5; _biomeWeightsResult.desert = 0.25; _biomeWeightsResult.jungle = 0.25; }
+  else { _biomeWeightsResult.snow = wSnow / total; _biomeWeightsResult.desert = wDesert / total; _biomeWeightsResult.jungle = wJungle / total; }
+  return _biomeWeightsResult;
 }
 
 // 返回主要biome名称
@@ -417,6 +435,15 @@ const ICE_CENTER_X = Math.cos(BIOME_SECTOR_ANGLES.snow) * 140;
 const ICE_CENTER_Z = Math.sin(BIOME_SECTOR_ANGLES.snow) * 140;
 const ICE_RADIUS = 85; // 大片冰湖（参考截图面积）
 
+// 腰果形冰湖判断（共享函数，避免重复代码）
+function isInIceLake(wx, wz) {
+  const nx = (wx - ICE_CENTER_X) / 1.4, nz = (wz - ICE_CENTER_Z) / 0.9;
+  const dn = Math.sqrt(nx * nx + nz * nz);
+  const ia = Math.atan2(nz, nx);
+  const ind = 0.38 * Math.max(0, -Math.cos(ia)) * (1 + 0.3 * Math.sin(ia));
+  return dn < ICE_RADIUS * (1.0 - ind);
+}
+
 // 雨林扇区方向：西南(3*PI/4)，泥潭在该方向不同距离处
 const _jungleDir = BIOME_SECTOR_ANGLES.jungle;
 const MUD_PITS = [
@@ -426,10 +453,10 @@ const MUD_PITS = [
 ];
 
 // 地面摩擦系数：影响抓地力
-// 返回 { grip: 0~1, drag: 额外阻力系数 }
+// 返回预分配静态对象 { grip: 0~1, drag: 额外阻力系数 }
+const _surfacePropsResult = { grip: 1, drag: 0 };
 function getSurfaceProperties(wx, wz) {
   const biome = getBiomeName(wx, wz);
-  const w = getBiomeWeights(wx, wz);
 
   // 基础属性
   let grip = 1.0, drag = 0;
@@ -494,7 +521,9 @@ function getSurfaceProperties(wx, wz) {
     drag = Math.max(0, drag * (1 - bonus.dragReduction));
   }
 
-  return { grip, drag };
+  _surfacePropsResult.grip = grip;
+  _surfacePropsResult.drag = drag;
+  return _surfacePropsResult;
 }
 
 function smoothstepGlobal(edge0, edge1, x) {
@@ -502,128 +531,7 @@ function smoothstepGlobal(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
-// ============================================================
-// WEATHER CALENDAR SYSTEM — 天气日历（5分钟=1天）
-// ============================================================
-const WEATHER_TYPES = [
-  { id: 'sunny',      name: '晴',   icon: '☀️',  rain: 0,   fog: 0,    snowfall: 0 },
-  { id: 'cloudy',     name: '多云', icon: '⛅',  rain: 0,   fog: 0.002, snowfall: 0 },
-  { id: 'overcast',   name: '阴',   icon: '☁️',  rain: 0,   fog: 0.004, snowfall: 0 },
-  { id: 'rain',       name: '雨',   icon: '🌧️', rain: 0.7, fog: 0.006, snowfall: 0 },
-  { id: 'heavyRain',  name: '暴雨', icon: '⛈️',  rain: 1.0, fog: 0.01,  snowfall: 0 },
-  { id: 'snow',       name: '雪',   icon: '🌨️', rain: 0,   fog: 0.005, snowfall: 0.7 },
-  { id: 'heavySnow',  name: '大雪', icon: '❄️',  rain: 0,   fog: 0.012, snowfall: 1.0 },
-  { id: 'fog',        name: '雾',   icon: '🌫️', rain: 0,   fog: 0.025, snowfall: 0 },
-];
-
 const DAY_DURATION_SEC = 300; // 5分钟 = 1天
-
-const weatherCal = {
-  startDay: 1,           // 起始日期编号
-  currentDay: 0,         // 当前是第几天（从0开始）
-  dayTimer: 0,           // 当天计时器（秒）
-  schedule: [],          // 7天天气安排 [{type, dayNum}, ...]
-  transitionProgress: 0, // 天气过渡进度 0~1
-};
-
-// 伪随机天气生成
-function generateWeatherSchedule(startDay, count) {
-  const result = [];
-  // 简单马尔科夫链：当前天气影响下一天
-  const transitions = {
-    'sunny':     ['sunny', 'sunny', 'cloudy', 'cloudy'],
-    'cloudy':    ['sunny', 'cloudy', 'overcast', 'rain'],
-    'overcast':  ['cloudy', 'overcast', 'rain', 'fog'],
-    'rain':      ['rain', 'overcast', 'heavyRain', 'cloudy'],
-    'heavyRain': ['rain', 'overcast', 'rain'],
-    'snow':      ['snow', 'cloudy', 'heavySnow', 'snow'],
-    'heavySnow': ['snow', 'overcast', 'snow'],
-    'fog':       ['cloudy', 'overcast', 'sunny'],
-  };
-
-  function seededChoice(arr, seed) {
-    let s = Math.floor(Math.abs(seed * 127.1 + seed * seed * 311.7)) % 2147483647;
-    s = ((s * 16807) % 2147483647);
-    return arr[Math.abs(s) % arr.length];
-  }
-
-  let prevType = 'sunny';
-  for (let i = 0; i < count; i++) {
-    const day = startDay + i;
-    const type = seededChoice(transitions[prevType] || ['sunny'], day * 7 + i * 13);
-    result.push({ type, dayNum: day });
-    prevType = type;
-  }
-  return result;
-}
-
-function initWeatherCalendar() {
-  weatherCal.startDay = 1;
-  weatherCal.currentDay = 0;
-  weatherCal.dayTimer = 0;
-  weatherCal.schedule = generateWeatherSchedule(1, 10); // 生成10天，显示7天
-}
-initWeatherCalendar();
-
-function getCurrentWeather() {
-  const entry = weatherCal.schedule[weatherCal.currentDay];
-  if (!entry) return WEATHER_TYPES[0];
-  return WEATHER_TYPES.find(w => w.id === entry.type) || WEATHER_TYPES[0];
-}
-
-function getNextWeather() {
-  const entry = weatherCal.schedule[weatherCal.currentDay + 1];
-  if (!entry) return getCurrentWeather();
-  return WEATHER_TYPES.find(w => w.id === entry.type) || WEATHER_TYPES[0];
-}
-
-function updateWeatherCalendar(dt) {
-  weatherCal.dayTimer += dt;
-  // 天气过渡：最后30秒开始过渡到下一天天气
-  const transitionStart = DAY_DURATION_SEC - 30;
-  if (weatherCal.dayTimer >= transitionStart) {
-    weatherCal.transitionProgress = Math.min(1, (weatherCal.dayTimer - transitionStart) / 30);
-  } else {
-    weatherCal.transitionProgress = 0;
-  }
-
-  if (weatherCal.dayTimer >= DAY_DURATION_SEC) {
-    weatherCal.dayTimer -= DAY_DURATION_SEC;
-    weatherCal.currentDay++;
-    weatherCal.transitionProgress = 0;
-    // 如果快用完schedule，追加生成
-    if (weatherCal.currentDay + 7 >= weatherCal.schedule.length) {
-      const lastDay = weatherCal.schedule[weatherCal.schedule.length - 1].dayNum;
-      weatherCal.schedule.push(...generateWeatherSchedule(lastDay + 1, 5));
-    }
-  }
-}
-
-function renderWeatherCalendar() {
-  const container = document.getElementById('weatherCal');
-  if (!container) return;
-  const startIdx = Math.max(0, weatherCal.currentDay - 3);
-  let html = '';
-  for (let i = 0; i < 7; i++) {
-    const idx = startIdx + i;
-    const entry = weatherCal.schedule[idx];
-    if (!entry) continue;
-    const wt = WEATHER_TYPES.find(w => w.id === entry.type) || WEATHER_TYPES[0];
-    const isToday = idx === weatherCal.currentDay;
-    const isPast = idx < weatherCal.currentDay;
-    const isFuture = idx > weatherCal.currentDay;
-    let cls = 'cal-day';
-    if (isToday) cls += ' today';
-    if (isFuture) cls += ' future';
-    const style = isPast ? 'opacity:0.35;transform:scale(0.82);' : '';
-    html += `<div class="${cls}" style="${style}">
-      <div class="day-label">Day ${entry.dayNum}</div>
-      <div class="day-icon">${wt.icon}</div>
-      <div class="day-num">${wt.name}</div>
-    </div>`;
-  }
-  container.innerHTML = html;
-}
 
 // ============================================================
 // TERRAIN HEIGHT FUNCTION (全局可用) — biome-aware
@@ -682,29 +590,30 @@ const rocks = [];
   }
 }
 
-// 空间哈希加速石块查询（避免每帧遍历所有石块）
-const ROCK_CELL = 16; // 每个格子16m
-const rockGrid = {};
+// 空间哈希加速石块查询 — 用数值key避免GC
+const ROCK_CELL = 16;
+const ROCK_GRID_SHIFT = 1000;
+const rockGrid = new Map();
 for (const rock of rocks) {
-  // 石块可能跨越多个格子
-  const minCX = Math.floor((rock.x - rock.radius) / ROCK_CELL);
-  const maxCX = Math.floor((rock.x + rock.radius) / ROCK_CELL);
-  const minCZ = Math.floor((rock.z - rock.radius) / ROCK_CELL);
-  const maxCZ = Math.floor((rock.z + rock.radius) / ROCK_CELL);
+  const minCX = Math.floor((rock.x - rock.radius) / ROCK_CELL) + ROCK_GRID_SHIFT;
+  const maxCX = Math.floor((rock.x + rock.radius) / ROCK_CELL) + ROCK_GRID_SHIFT;
+  const minCZ = Math.floor((rock.z - rock.radius) / ROCK_CELL) + ROCK_GRID_SHIFT;
+  const maxCZ = Math.floor((rock.z + rock.radius) / ROCK_CELL) + ROCK_GRID_SHIFT;
   for (let cx = minCX; cx <= maxCX; cx++) {
     for (let cz = minCZ; cz <= maxCZ; cz++) {
-      const key = cx + ',' + cz;
-      if (!rockGrid[key]) rockGrid[key] = [];
-      rockGrid[key].push(rock);
+      const key = cx * 100000 + cz;
+      let cell = rockGrid.get(key);
+      if (!cell) { cell = []; rockGrid.set(key, cell); }
+      cell.push(rock);
     }
   }
 }
 
 function getRockHeight(wx, wz) {
-  const cx = Math.floor(wx / ROCK_CELL);
-  const cz = Math.floor(wz / ROCK_CELL);
-  const key = cx + ',' + cz;
-  const cell = rockGrid[key];
+  const cx = Math.floor(wx / ROCK_CELL) + ROCK_GRID_SHIFT;
+  const cz = Math.floor(wz / ROCK_CELL) + ROCK_GRID_SHIFT;
+  const key = cx * 100000 + cz;
+  const cell = rockGrid.get(key);
   if (!cell) return 0;
   let maxH = 0;
   for (let i = 0; i < cell.length; i++) {
@@ -748,45 +657,29 @@ function getRockHeight(wx, wz) {
 // ============================================================
 const BIOME_BASE = { desert: 0, jungle: 2, snow: 4 };
 
-function getTerrainHeight(wx, wz) {
+// ---- 原始地形高度（含所有噪声计算，仅用于预计算高度场）----
+function _getTerrainHeightRaw(wx, wz) {
   const bw = getBiomeWeights(wx, wz);
   const distFromCenter = Math.sqrt(wx * wx + wz * wz);
   const flattenFactor = Math.min(1, distFromCenter / 30);
-
   let h = 0;
-
-  // ---- 海滩/海洋 ----
   if (bw.desert > 0.05) {
     const dist2 = distFromCenter;
     const beachEnd = 120, shallowStart = 140, deepStart = 200;
     const beachH = BIOME_BASE.desert + Math.abs(fbm(wx * 0.008, wz * 0.008, 2, 2.0, 0.5)) * 1.8 + 0.3;
     const seaBedH = SEA_LEVEL - 1.5 - Math.abs(fbm(wx * 0.005 + 200, wz * 0.005 + 200, 2, 2.0, 0.5)) * 1.5;
     let desertH;
-    if (dist2 < beachEnd) {
-      desertH = beachH;
-    } else if (dist2 < shallowStart) {
-      // 沙滩→水边（非常平缓的下坡，车子可以开下去）
-      const t = smoothstepGlobal(beachEnd, shallowStart, dist2);
-      desertH = beachH * (1 - t) + (SEA_LEVEL + 0.5) * t; // 到浅水刚过海面
-    } else if (dist2 < deepStart) {
-      // 浅水→深水（缓坡）
-      const t = smoothstepGlobal(shallowStart, deepStart, dist2);
-      desertH = (SEA_LEVEL + 0.5) * (1 - t) + seaBedH * t;
-    } else {
-      desertH = seaBedH;
-    }
+    if (dist2 < beachEnd) desertH = beachH;
+    else if (dist2 < shallowStart) { const t = smoothstepGlobal(beachEnd, shallowStart, dist2); desertH = beachH * (1-t) + (SEA_LEVEL+0.5) * t; }
+    else if (dist2 < deepStart) { const t = smoothstepGlobal(shallowStart, deepStart, dist2); desertH = (SEA_LEVEL+0.5) * (1-t) + seaBedH * t; }
+    else desertH = seaBedH;
     h += desertH * bw.desert;
   }
-
-  // ---- 雨林 ----
   if (bw.jungle > 0.05) {
     const noise1 = Math.abs(fbm(wx * 0.01 - 500, wz * 0.01 - 500, 3, 2.0, 0.55)) * 5;
     const noise2 = Math.abs(fbm(wx * 0.04 - 500, wz * 0.04 - 500, 2, 2.5, 0.4)) * 1.5;
-    const jungleH = BIOME_BASE.jungle + noise1 + noise2;
-    h += jungleH * bw.jungle;
+    h += (BIOME_BASE.jungle + noise1 + noise2) * bw.jungle;
   }
-
-  // ---- 冰雪 ----
   if (bw.snow > 0.05) {
     const noise1 = Math.abs(fbm(wx * 0.006 + 500, wz * 0.006 + 500, 3, 2.0, 0.5)) * 6;
     const noise2 = Math.abs(fbm(wx * 0.025 + 500, wz * 0.025 + 500, 2, 2.5, 0.4)) * 2;
@@ -794,11 +687,8 @@ function getTerrainHeight(wx, wz) {
     snowH += getSnowHillHeight(wx, wz);
     h += snowH * bw.snow;
   }
-
   h *= flattenFactor;
-
-  // 冰湖区域：地形高度提升到冰面高度（腰果形，与视觉网格一致）
-  {
+  { // 冰湖
     const iceDx = wx - ICE_CENTER_X, iceDz = wz - ICE_CENTER_Z;
     const nx = iceDx / 1.4, nz = iceDz / 0.9;
     const distNorm = Math.sqrt(nx * nx + nz * nz);
@@ -806,33 +696,53 @@ function getTerrainHeight(wx, wz) {
     const indent = 0.38 * Math.max(0, -Math.cos(iceAngle)) * (1 + 0.3 * Math.sin(iceAngle));
     const iceR = ICE_RADIUS * (1.0 - indent);
     const iceLevel = BIOME_BASE.snow + 2.0;
-    if (distNorm <= iceR) {
-      // 视觉边界以内：地形完全平坦在冰面高度，不允许低于此值
-      h = iceLevel;
-    } else if (distNorm < iceR * 1.5) {
-      // 视觉边界以外的过渡带：从冰面高度平滑降回自然地形（加宽避免南侧陡坡）
-      const t = smoothstepGlobal(iceR, iceR * 1.5, distNorm);
-      h = iceLevel * (1 - t) + h * t;
-    }
+    if (distNorm <= iceR * 0.85) h = iceLevel;
+    else if (distNorm < iceR * 2.0) { const t = smoothstepGlobal(iceR * 0.85, iceR * 2.0, distNorm); h = iceLevel * (1-t) + h * t; }
   }
-
-  // 道路坡道：沿道路线把高度变化压缓，找最缓路线上坡
-  {
+  { // 道路
     const roadDist = getTrailDistance(wx, wz);
-    const roadWidth = 10; // 道路影响宽度（加宽）
+    const roadWidth = 10;
     if (roadDist < roadWidth + 5) {
       const flatBlend = 1 - smoothstepGlobal(roadWidth - 2, roadWidth + 5, roadDist);
-      // 最大坡度 5%（非常缓，越野车可以轻松上坡）
-      const maxGradient = 0.05;
-      const rampH = distFromCenter * maxGradient;
+      const rampH = distFromCenter * 0.05;
       const roadH = Math.min(h, rampH);
       h = h * (1 - flatBlend) + roadH * flatBlend;
     }
   }
+  return h; // 注意：不含石块高度（石块高度在getTerrainHeight中单独加）
+}
 
+// ============================================================
+// 预计算高度场（类似Rapier的heightfield）
+// 声明+查询函数先定义，实际预计算在getTrailDistance之后执行
+// ============================================================
+const HF_SIZE = 512;            // 高度场分辨率（512²=26万，预计算<1秒）
+const HF_WORLD = 550;           // 覆盖世界范围: [-275, +275]
+const HF_HALF = HF_WORLD / 2;
+const HF_CELL = HF_WORLD / HF_SIZE; // 每格约1.07m
+const HF_DATA = new Float32Array(HF_SIZE * HF_SIZE);
+let _hfReady = false;
+
+// 运行时地形高度查询：双线性插值（极快）
+// 高度场未就绪时回退到原始计算（仅初始化阶段）
+function getTerrainHeight(wx, wz) {
+  if (!_hfReady) return _getTerrainHeightRaw(wx, wz) + getRockHeight(wx, wz);
+  // 世界坐标 → 高度场网格坐标
+  const gx = (wx + HF_HALF) / HF_WORLD * (HF_SIZE - 1);
+  const gz = (wz + HF_HALF) / HF_WORLD * (HF_SIZE - 1);
+  // 边界钳制
+  const gxc = Math.max(0, Math.min(HF_SIZE - 2, gx));
+  const gzc = Math.max(0, Math.min(HF_SIZE - 2, gz));
+  const ix = gxc | 0, iz = gzc | 0; // 快速取整
+  const fx = gxc - ix, fz = gzc - iz;
+  // 双线性插值
+  const h00 = HF_DATA[iz * HF_SIZE + ix];
+  const h10 = HF_DATA[iz * HF_SIZE + ix + 1];
+  const h01 = HF_DATA[(iz + 1) * HF_SIZE + ix];
+  const h11 = HF_DATA[(iz + 1) * HF_SIZE + ix + 1];
+  const h = (h00 * (1 - fx) + h10 * fx) * (1 - fz) + (h01 * (1 - fx) + h11 * fx) * fz;
   // 石块高度叠加
-  const rockH = getRockHeight(wx, wz);
-  return h + rockH;
+  return h + getRockHeight(wx, wz);
 }
 
 // 雪丘系统 — 大面积起伏的雪山丘（取代原来的螺旋公路尖柱）
@@ -855,15 +765,24 @@ const SNOW_HILLS = [];
   }
 }
 
-// 查询雪丘在 (wx,wz) 的附加高度
+// 预计算雪丘的AABB包围半径（用于快速排除）和cos/sin
+for (const hill of SNOW_HILLS) {
+  hill._boundR2 = Math.max(hill.rx, hill.rz); // 最大轴半径
+  hill._boundR2 *= hill._boundR2; // 平方，用于距离快速比较
+  hill._cosR = Math.cos(hill.rot);
+  hill._sinR = Math.sin(hill.rot);
+}
+// 查询雪丘在 (wx,wz) 的附加高度（含AABB预筛选）
 function getSnowHillHeight(wx, wz) {
   let maxH = 0;
-  for (const hill of SNOW_HILLS) {
+  for (let _hi = 0; _hi < SNOW_HILLS.length; _hi++) {
+    const hill = SNOW_HILLS[_hi];
     const dx = wx - hill.x, dz = wz - hill.z;
-    // 旋转到丘体局部空间
-    const cosR = Math.cos(hill.rot), sinR = Math.sin(hill.rot);
-    const lx = dx * cosR + dz * sinR;
-    const lz = -dx * sinR + dz * cosR;
+    // AABB快速排除：距离平方 > 最大轴半径平方 → 不可能在椭圆内
+    if (dx * dx + dz * dz > hill._boundR2) continue;
+    // 旋转到丘体局部空间（用预计算的cos/sin）
+    const lx = dx * hill._cosR + dz * hill._sinR;
+    const lz = -dx * hill._sinR + dz * hill._cosR;
     // 椭圆距离
     const ex = lx / hill.rx, ez = lz / hill.rz;
     const d2 = ex * ex + ez * ez;
@@ -897,7 +816,7 @@ scene.add(ambientLight);
 
 const keyLight = new THREE.DirectionalLight(0xfff4e0, 1.5);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.mapSize.set(1024, 1024);
 keyLight.shadow.camera.near = 0.5;
 keyLight.shadow.camera.far = 80;
 keyLight.shadow.camera.left = -25;
@@ -1025,24 +944,27 @@ const TRAIL_POINTS = [];
   }
 }
 
-// 道路空间网格（加速getTrailDistance查找）
+// 道路空间网格（加速getTrailDistance查找）— 用数值key避免GC
 const TRAIL_GRID_CELL = 20; // 20m格子
-const trailGrid = {};
+const TRAIL_GRID_SHIFT = 10000; // 坐标偏移避免负数key
+const trailGrid = new Map();
 for (let i = 0; i < TRAIL_POINTS.length; i++) {
-  const cx = Math.floor(TRAIL_POINTS[i].x / TRAIL_GRID_CELL);
-  const cz = Math.floor(TRAIL_POINTS[i].z / TRAIL_GRID_CELL);
-  const key = cx + ',' + cz;
-  if (!trailGrid[key]) trailGrid[key] = [];
-  trailGrid[key].push(i);
+  const cx = Math.floor(TRAIL_POINTS[i].x / TRAIL_GRID_CELL) + TRAIL_GRID_SHIFT;
+  const cz = Math.floor(TRAIL_POINTS[i].z / TRAIL_GRID_CELL) + TRAIL_GRID_SHIFT;
+  const key = cx * 100000 + cz;
+  let cell = trailGrid.get(key);
+  if (!cell) { cell = []; trailGrid.set(key, cell); }
+  cell.push(i);
 }
 
 function getTrailDistance(wx, wz) {
-  const cx = Math.floor(wx / TRAIL_GRID_CELL), cz = Math.floor(wz / TRAIL_GRID_CELL);
+  const cx = Math.floor(wx / TRAIL_GRID_CELL) + TRAIL_GRID_SHIFT;
+  const cz = Math.floor(wz / TRAIL_GRID_CELL) + TRAIL_GRID_SHIFT;
   let minDist = Infinity;
-  // 检查当前和相邻9个格子
   for (let dx = -1; dx <= 1; dx++) {
     for (let dz = -1; dz <= 1; dz++) {
-      const cell = trailGrid[(cx+dx) + ',' + (cz+dz)];
+      const key = (cx+dx) * 100000 + (cz+dz);
+      const cell = trailGrid.get(key);
       if (!cell) continue;
       for (let k = 0; k < cell.length; k++) {
         const p = TRAIL_POINTS[cell[k]];
@@ -1055,16 +977,35 @@ function getTrailDistance(wx, wz) {
   return minDist < Infinity ? Math.sqrt(minDist) : 999;
 }
 
+const _roadBonusResult = { gripBonus: 0, dragReduction: 0 };
 function getRoadSurfaceBonus(wx, wz) {
   const dist = getTrailDistance(wx, wz);
   const roadWidth = 6;
-  if (dist > roadWidth) return { gripBonus: 0, dragReduction: 0 };
+  if (dist > roadWidth) { _roadBonusResult.gripBonus = 0; _roadBonusResult.dragReduction = 0; return _roadBonusResult; }
   const blend = 1 - smoothstepGlobal(roadWidth - 2, roadWidth, dist);
-  return { gripBonus: 0.35 * blend, dragReduction: 0.85 * blend };
+  _roadBonusResult.gripBonus = 0.35 * blend;
+  _roadBonusResult.dragReduction = 0.85 * blend;
+  return _roadBonusResult;
 }
 
 function getTrailSurfaceBonus(wx, wz) {
   return getRoadSurfaceBonus(wx, wz);
+}
+
+// ============================================================
+// 预计算高度场 — 所有依赖函数已定义，开始填充
+// ============================================================
+{
+  console.time('heightfield');
+  for (let iz = 0; iz < HF_SIZE; iz++) {
+    const wz = (iz / (HF_SIZE - 1)) * HF_WORLD - HF_HALF;
+    for (let ix = 0; ix < HF_SIZE; ix++) {
+      const wx = (ix / (HF_SIZE - 1)) * HF_WORLD - HF_HALF;
+      HF_DATA[iz * HF_SIZE + ix] = _getTerrainHeightRaw(wx, wz);
+    }
+  }
+  _hfReady = true;
+  console.timeEnd('heightfield');
 }
 
 // ============================================================
@@ -1093,6 +1034,7 @@ const STREAM_COLOR = new THREE.Color(0.20, 0.35, 0.25);
 const _tmpCol = new THREE.Color();
 const _tmpCol2 = new THREE.Color(); // 水深颜色混合用
 
+const _vertexColorResult = { r: 0, g: 0, b: 0 };
 function computeVertexColor(x, z) {
   const bw = getBiomeWeights(x, z);
   // 海洋/海滩区域根据距离估算水深（避免调用昂贵的getTerrainHeight）
@@ -1136,61 +1078,96 @@ function computeVertexColor(x, z) {
       }
     }
   }
-  return { r:_tmpCol.r, g:_tmpCol.g, b:_tmpCol.b };
+  _vertexColorResult.r = _tmpCol.r; _vertexColorResult.g = _tmpCol.g; _vertexColorResult.b = _tmpCol.b;
+  return _vertexColorResult;
 }
 
 let terrainCenterX = 0, terrainCenterZ = 0;
 
-// 分帧地形重建系统（避免单帧卡顿）
-const TERRAIN_CHUNK_SIZE = 300; // 每帧处理的顶点数（越小越不卡）
+// ============================================================
+// 双缓冲异步地形重建系统
+// - 两份 geometry（A/B），当前显示 A
+// - 需要重建时，在 B 上逐帧填充
+// - 填充完毕后一次性 swap geometry，避免闪烁
+// ============================================================
+const TERRAIN_CHUNK_SIZE = 4800; // 高度场查询极快，约2帧完成全部9409顶点
+
+// 创建第二份 geometry 用于后台填充
+const terrainGeoB = new THREE.PlaneGeometry(TERRAIN_MESH_SIZE, TERRAIN_MESH_SIZE, TERRAIN_SEG, TERRAIN_SEG);
+terrainGeoB.rotateX(-Math.PI / 2);
+const vertexColorsB = new Float32Array(terrainGeoB.getAttribute('position').count * 3);
+terrainGeoB.setAttribute('color', new THREE.BufferAttribute(vertexColorsB, 3));
+
+// 当前活跃 geometry 索引（0=A, 1=B）
+let activeGeoIdx = 0;
+const terrainGeos = [terrainGeo, terrainGeoB];
+
 const terrainRegen = {
   active: false,
   centerX: 0, centerZ: 0,
-  cursor: 0,          // 当前处理到第几个顶点
+  cursor: 0,
   total: 0,
+  targetGeoIdx: 1,  // 正在填充哪份 geometry
 };
 
-// 启动一次新的分帧重建
-function startTerrainRegen(centerX, centerZ) {
-  terrainCenterX = centerX;
-  terrainCenterZ = centerZ;
-  terrain.position.set(centerX, 0, centerZ);
-  terrainRegen.active = true;
-  terrainRegen.centerX = centerX;
-  terrainRegen.centerZ = centerZ;
-  terrainRegen.cursor = 0;
-  terrainRegen.total = terrainPos.count;
-}
-
-// 每帧处理一批顶点（由游戏循环调用）
-function tickTerrainRegen() {
-  if (!terrainRegen.active) return;
-  const colorAttr = terrainGeo.getAttribute('color');
-  const cx = terrainRegen.centerX, cz = terrainRegen.centerZ;
-  const end = Math.min(terrainRegen.cursor + TERRAIN_CHUNK_SIZE, terrainRegen.total);
-
-  for (let i = terrainRegen.cursor; i < end; i++) {
-    const lx = terrainPos.getX(i), lz = terrainPos.getZ(i);
+// 填充一份 geometry 的指定顶点范围
+function _fillTerrainVerts(geo, cx, cz, startIdx, endIdx) {
+  const posAttr = geo.getAttribute('position');
+  const colorAttr = geo.getAttribute('color');
+  for (let i = startIdx; i < endIdx; i++) {
+    const lx = posAttr.getX(i), lz = posAttr.getZ(i);
     const wx = lx + cx, wz = lz + cz;
     const localDist = Math.sqrt(lx * lx + lz * lz);
     const edgeFade = 1 - smoothstepGlobal(TERRAIN_RADIUS - 30, TERRAIN_RADIUS, localDist);
     const h = getTerrainHeight(wx, wz);
-    terrainPos.setY(i, h * edgeFade);
+    posAttr.setY(i, h * edgeFade);
     const bw = getBiomeWeights(wx, wz);
-    const r = 0.92 * bw.snow + 0.83 * bw.desert + 0.25 * bw.jungle;
-    const g = 0.94 * bw.snow + 0.63 * bw.desert + 0.52 * bw.jungle;
-    const b = 0.96 * bw.snow + 0.33 * bw.desert + 0.18 * bw.jungle;
-    colorAttr.setXYZ(i, r, g, b);
+    colorAttr.setXYZ(i,
+      0.92 * bw.snow + 0.83 * bw.desert + 0.25 * bw.jungle,
+      0.94 * bw.snow + 0.63 * bw.desert + 0.52 * bw.jungle,
+      0.96 * bw.snow + 0.33 * bw.desert + 0.18 * bw.jungle
+    );
   }
+}
 
+// 启动异步重建（在后台 geometry 上）
+function startTerrainRegenAsync(centerX, centerZ) {
+  if (terrainRegen.active) return; // 已经在重建中
+  const targetIdx = 1 - activeGeoIdx; // 选择非活跃的 geometry
+  terrainRegen.active = true;
+  terrainRegen.centerX = centerX;
+  terrainRegen.centerZ = centerZ;
+  terrainRegen.cursor = 0;
+  terrainRegen.total = terrainGeos[targetIdx].getAttribute('position').count;
+  terrainRegen.targetGeoIdx = targetIdx;
+}
+
+// 每帧 tick：处理一批顶点
+function tickTerrainRegen() {
+  if (!terrainRegen.active) return;
+  const geo = terrainGeos[terrainRegen.targetGeoIdx];
+  const cx = terrainRegen.centerX, cz = terrainRegen.centerZ;
+  const end = Math.min(terrainRegen.cursor + TERRAIN_CHUNK_SIZE, terrainRegen.total);
+
+  _fillTerrainVerts(geo, cx, cz, terrainRegen.cursor, end);
   terrainRegen.cursor = end;
-  // 每批次都标记更新（逐渐显示新地形）
-  terrainPos.needsUpdate = true;
-  colorAttr.needsUpdate = true;
 
   if (terrainRegen.cursor >= terrainRegen.total) {
-    // 全部完成，计算法线
-    terrainGeo.computeVertexNormals();
+    // 后台 geometry 填充完毕 → 计算法线 → swap
+    const posAttr = geo.getAttribute('position');
+    const colorAttr = geo.getAttribute('color');
+    posAttr.needsUpdate = true;
+    colorAttr.needsUpdate = true;
+    geo.computeVertexNormals();
+
+    // Swap: terrain mesh 切换到新 geometry
+    terrain.geometry = geo;
+    terrainCenterX = terrainRegen.centerX;
+    terrainCenterZ = terrainRegen.centerZ;
+    terrain.position.set(terrainCenterX, 0, terrainCenterZ);
+    activeGeoIdx = terrainRegen.targetGeoIdx;
+
+    if (typeof updateRockVisibility === 'function') updateRockVisibility();
     terrainRegen.active = false;
   }
 }
@@ -1198,27 +1175,52 @@ function tickTerrainRegen() {
 // 同步版本仅用于初始加载（第一次必须全部完成）
 function regenerateTerrainSync(centerX, centerZ) {
   terrainCenterX = centerX; terrainCenterZ = centerZ;
-  const colorAttr = terrainGeo.getAttribute('color');
-  for (let i = 0; i < terrainPos.count; i++) {
-    const lx = terrainPos.getX(i), lz = terrainPos.getZ(i);
-    const wx = lx + centerX, wz = lz + centerZ;
-    const localDist = Math.sqrt(lx * lx + lz * lz);
-    const edgeFade = 1 - smoothstepGlobal(TERRAIN_RADIUS - 30, TERRAIN_RADIUS, localDist);
-    const h = getTerrainHeight(wx, wz);
-    terrainPos.setY(i, h * edgeFade);
-    const bw = getBiomeWeights(wx, wz);
-    const r = 0.92 * bw.snow + 0.83 * bw.desert + 0.25 * bw.jungle;
-    const g = 0.94 * bw.snow + 0.63 * bw.desert + 0.52 * bw.jungle;
-    const b = 0.96 * bw.snow + 0.33 * bw.desert + 0.18 * bw.jungle;
-    colorAttr.setXYZ(i, r, g, b);
-  }
-  terrainPos.needsUpdate = true;
-  colorAttr.needsUpdate = true;
-  terrainGeo.computeVertexNormals();
+  const geo = terrainGeos[activeGeoIdx];
+  const posAttr = geo.getAttribute('position');
+  const count = posAttr.count;
+  _fillTerrainVerts(geo, centerX, centerZ, 0, count);
+  posAttr.needsUpdate = true;
+  geo.getAttribute('color').needsUpdate = true;
+  geo.computeVertexNormals();
+  if (typeof updateRockVisibility === 'function') updateRockVisibility();
 }
 
 terrainGeo.setAttribute('color', new THREE.BufferAttribute(vertexColors, 3));
 regenerateTerrainSync(0, 0); // 初始加载用同步
+
+let gameTime = 0;
+
+// ---- 程序化生成轮胎花纹贴图 ----
+function createTireTexture() {
+  const cvs = document.createElement('canvas');
+  cvs.width = 64; cvs.height = 128;
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, 64, 128);
+  const blockH = 16;
+  for (let row = 0; row < 128; row += blockH) {
+    const even = (row / blockH) % 2 === 0;
+    ctx.fillStyle = 'rgba(50, 45, 38, 255)';
+    ctx.beginPath();
+    if (even) { ctx.moveTo(0, row+3); ctx.lineTo(27, row+1); ctx.lineTo(27, row+blockH-3); ctx.lineTo(0, row+blockH-1); }
+    else { ctx.moveTo(0, row+1); ctx.lineTo(27, row+3); ctx.lineTo(27, row+blockH-1); ctx.lineTo(0, row+blockH-3); }
+    ctx.fill();
+    ctx.beginPath();
+    if (even) { ctx.moveTo(64, row+3); ctx.lineTo(37, row+1); ctx.lineTo(37, row+blockH-3); ctx.lineTo(64, row+blockH-1); }
+    else { ctx.moveTo(64, row+1); ctx.lineTo(37, row+3); ctx.lineTo(37, row+blockH-1); ctx.lineTo(64, row+blockH-3); }
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  for (let row = 0; row < 128; row += blockH) { ctx.fillRect(0, row, 64, 2); ctx.fillRect(0, row+blockH-2, 64, 2); }
+  ctx.globalCompositeOperation = 'source-over';
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipMapLinearFilter;
+  return tex;
+}
+const tireTexture = createTireTexture();
 
 const terrainMat = new THREE.MeshStandardMaterial({
   vertexColors: true, roughness: 0.85, metalness: 0.0,
@@ -1305,9 +1307,13 @@ function getWaterDepth(wx, wz) {
     metalness: 0.10,
     side: THREE.DoubleSide,
     depthWrite: true,
+    polygonOffset: true,        // 避免与同高度地形网格 z-fighting
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -4,
   });
   const iceMesh = new THREE.Mesh(iceGeo, iceMat);
-  iceMesh.position.set(ICE_CENTER_X, iceLevel + 0.05, ICE_CENTER_Z);
+  // Y = iceLevel（与 getTerrainHeight 冰面内返回值一致），polygonOffset 保证渲染在地形上方
+  iceMesh.position.set(ICE_CENTER_X, iceLevel, ICE_CENTER_Z);
   iceMesh.renderOrder = 0;
   iceMesh.receiveShadow = true;
   scene.add(iceMesh);
@@ -1331,160 +1337,27 @@ function getWaterDepth(wx, wz) {
     chunk.position.set(ICE_CENTER_X + d.ox, iceLevel + 0.35, ICE_CENTER_Z + d.oz);
     chunk.rotation.y = d.ry;
     chunk.scale.set(1, 1, d.sz / d.sx); // 非等比，显得自然
-    chunk.castShadow = true;
+    chunk.castShadow = false;
     scene.add(chunk);
   }
 }
 
 function updateDynamicTerrain() {
-  // 用同步方式一帧内完成重建，避免分帧过程中网格位置已变但顶点高度/法线尚未更新导致的闪烁
-  if (!terrainRegen.active) {
+  // 双缓冲异步重建：在后台 geometry 上逐帧填充，完毕后一次性 swap
+  // 当前显示的 geometry 不受影响，零闪烁
+  if (terrainRegen.active) {
+    tickTerrainRegen(); // 每帧推进后台填充
+  } else {
     const dx = car.pos.x - terrainCenterX, dz = car.pos.z - terrainCenterZ;
     if (dx * dx + dz * dz > TERRAIN_REGEN_DIST * TERRAIN_REGEN_DIST) {
-      regenerateTerrainSync(car.pos.x, car.pos.z);
-      terrain.position.set(car.pos.x, 0, car.pos.z);
+      startTerrainRegenAsync(car.pos.x, car.pos.z);
     }
   }
 }
 
 
 
-if (false) { /* removed GPU shader code */
-
-  // 在vertex shader头部注入噪声/地形函数
-  shader.vertexShader = shader.vertexShader.replace(
-    '#include <common>',
-    `#include <common>
-    uniform vec2 uCenter;
-    uniform float uRadius;
-    uniform sampler2D uSnowHills;
-    uniform int uSnowHillCount;
-    // ---- GPU Noise (和CPU完全一致的hash) ----
-    vec2 _fade2(vec2 t){return t*t*t*(t*(t*6.0-15.0)+10.0);}
-    float _hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
-    float gnoise(vec2 p){
-      vec2 i=floor(p),f=fract(p),u=_fade2(f);
-      float a=_hash(i),b=_hash(i+vec2(1,0)),c=_hash(i+vec2(0,1)),d=_hash(i+vec2(1,1));
-      return mix(mix(a,b,u.x),mix(c,d,u.x),u.y)*2.0-1.0;
-    }
-    float gfbm(vec2 p,int oct,float lac,float gain){
-      float s=0.0,a=1.0,m=0.0;
-      for(int i=0;i<6;i++){if(i>=oct)break;s+=gnoise(p)*a;m+=a;a*=gain;p*=lac;}
-      return s/m;
-    }
-    float ssc(float e0,float e1,float x){float t=clamp((x-e0)/(e1-e0),0.0,1.0);return t*t*(3.0-2.0*t);}
-    float normA(float a){return mod(a+3.14159265,6.28318530)-3.14159265;}
-    vec3 gBiome(vec2 wp){
-      float d=length(wp),ang=atan(wp.y,wp.x);
-      float ns=ssc(10.0,60.0,d);
-      float aN=(gnoise(vec2(ang*2.5+300.0,d*0.008+300.0))*0.25+gnoise(vec2(ang*5.0+700.0,d*0.015+700.0))*0.12+gnoise(vec2(ang*1.2+100.0,d*0.004+100.0))*0.15)*ns;
-      float dS=abs(normA(ang+1.5707963+aN)),dD=abs(normA(ang-0.7853982+aN*0.8)),dJ=abs(normA(ang-2.3561945+aN*1.1));
-      float wS=max(0.0,1.0-ssc(1.3507963,1.7907963,dS));
-      float wD=max(0.0,1.0-ssc(0.5653982,1.0053982,dD));
-      float wJ=max(0.0,1.0-ssc(0.5653982,1.0053982,dJ));
-      float t=wS+wD+wJ;if(t<0.001)return vec3(0.5,0.25,0.25);return vec3(wS,wD,wJ)/t;
-    }
-    float gSnowHill(vec2 wp){
-      float mx=0.0;
-      for(int i=0;i<20;i++){if(i>=uSnowHillCount)break;
-        vec4 hd=texelFetch(uSnowHills,ivec2(i,0),0);
-        float dx=wp.x-hd.x,dz=wp.y-hd.y,r=hd.z,h=hd.w;
-        float d2=(dx*dx+dz*dz)/(r*r);if(d2>=1.0)continue;
-        mx=max(mx,h*(0.5+0.5*cos(sqrt(d2)*3.14159265)));
-      }return mx;
-    }
-    float gHeight(vec2 wp){
-      vec3 bw=gBiome(wp);float ff=min(1.0,length(wp)/30.0);float h=0.0;
-      if(bw.y>0.01)h+=(gfbm(wp*0.008,4,2.0,0.5)*8.0+gfbm(wp*0.03+100.0,3,2.5,0.4)*1.5)*bw.y;
-      if(bw.x>0.01){float sH=gfbm(wp*0.006+500.0,4,2.0,0.5)*14.0+gfbm(wp*0.025+500.0,3,2.5,0.4)*2.0+gSnowHill(wp);h+=sH*bw.x;}
-      if(bw.z>0.01)h+=(gfbm(wp*0.01-500.0,4,2.0,0.55)*10.0+gfbm(wp*0.04-500.0,3,2.5,0.4)*2.5)*bw.z;
-      return h*ff;
-    }
-    `
-  );
-
-  // 在顶点位置变换前注入displacement
-  shader.vertexShader = shader.vertexShader.replace(
-    '#include <begin_vertex>',
-    `#include <begin_vertex>
-    vec2 wp = vec2(transformed.x + uCenter.x, transformed.z + uCenter.y);
-    float terrH = gHeight(wp);
-    float localDist = length(transformed.xz);
-    float edgeFade = 1.0 - ssc(uRadius - 30.0, uRadius, localDist);
-    transformed.y = terrH * edgeFade;
-    `
-  );
-
-  // 法线也需要修正（用差分法）
-  shader.vertexShader = shader.vertexShader.replace(
-    '#include <defaultnormal_vertex>',
-    `
-    float nEps = 1.5;
-    vec2 wpN = vec2(transformed.x + uCenter.x, transformed.z + uCenter.y);
-    float edgeN = 1.0 - ssc(uRadius - 30.0, uRadius, length(transformed.xz));
-    float hL = gHeight(wpN + vec2(-nEps, 0.0)) * edgeN;
-    float hR = gHeight(wpN + vec2(nEps, 0.0)) * edgeN;
-    float hD = gHeight(wpN + vec2(0.0, -nEps)) * edgeN;
-    float hU = gHeight(wpN + vec2(0.0, nEps)) * edgeN;
-    vec3 terrNormal = normalize(vec3(hL - hR, 2.0 * nEps, hD - hU));
-    // 替换objectNormal
-    vec3 objectNormal = terrNormal;
-    #include <defaultnormal_vertex>
-    `
-  );
-
-  // 在fragment中注入biome颜色覆盖（替代静态vertex color）
-  shader.fragmentShader = shader.fragmentShader.replace(
-    '#include <common>',
-    `#include <common>
-    uniform vec2 uCenter;
-    uniform sampler2D uTrailData;
-    uniform int uTrailCount;
-    vec2 _fade2F(vec2 t){return t*t*t*(t*(t*6.0-15.0)+10.0);}
-    float _hashF(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
-    float gnoiseF(vec2 p){vec2 i=floor(p),f=fract(p),u=_fade2F(f);return mix(mix(_hashF(i),_hashF(i+vec2(1,0)),u.x),mix(_hashF(i+vec2(0,1)),_hashF(i+vec2(1,1)),u.x),u.y)*2.0-1.0;}
-    float sscF(float e0,float e1,float x){float t=clamp((x-e0)/(e1-e0),0.0,1.0);return t*t*(3.0-2.0*t);}
-    float normAF(float a){return mod(a+3.14159265,6.28318530)-3.14159265;}
-    vec3 gBiomeF(vec2 wp){
-      float d=length(wp),ang=atan(wp.y,wp.x),ns=sscF(10.0,60.0,d);
-      float aN=(gnoiseF(vec2(ang*2.5+300.0,d*0.008+300.0))*0.25+gnoiseF(vec2(ang*5.0+700.0,d*0.015+700.0))*0.12+gnoiseF(vec2(ang*1.2+100.0,d*0.004+100.0))*0.15)*ns;
-      float dS=abs(normAF(ang+1.5707963+aN)),dD=abs(normAF(ang-0.7853982+aN*0.8)),dJ=abs(normAF(ang-2.3561945+aN*1.1));
-      float wS=max(0.0,1.0-sscF(1.3507963,1.7907963,dS)),wD=max(0.0,1.0-sscF(0.5653982,1.0053982,dD)),wJ=max(0.0,1.0-sscF(0.5653982,1.0053982,dJ));
-      float t=wS+wD+wJ;if(t<0.001)return vec3(0.5,0.25,0.25);return vec3(wS,wD,wJ)/t;
-    }
-    float gTrailDist(vec2 wp){
-      float mn=1e6;for(int i=0;i<64;i++){if(i>=uTrailCount)break;vec4 td=texelFetch(uTrailData,ivec2(i,0),0);float dx=wp.x-td.x,dz=wp.y-td.y;mn=min(mn,dx*dx+dz*dz);}return sqrt(mn);
-    }
-    `
-  );
-
-  // 在漫反射颜色计算后替换颜色
-  shader.fragmentShader = shader.fragmentShader.replace(
-    '#include <color_fragment>',
-    `#include <color_fragment>
-    // 用GPU计算的biome颜色替代vertex color
-    vec2 fwp = vec2(vViewPosition.x, vViewPosition.z); // 近似
-    // 使用世界坐标（从varying中推导）
-    vec4 worldPos4 = inverse(viewMatrix) * vec4(vViewPosition, 1.0);
-    vec2 fWorldXZ = worldPos4.xz;
-    vec3 fbw = gBiomeF(fWorldXZ);
-    vec3 biomeCol = vec3(0.92,0.94,0.96)*fbw.x + vec3(0.83,0.63,0.33)*fbw.y + vec3(0.25,0.52,0.18)*fbw.z;
-    // 雪地冰湖
-    float iceDist = length(fWorldXZ - vec2(${ICE_CENTER_X.toFixed(1)}, ${ICE_CENTER_Z.toFixed(1)}));
-    if(iceDist < 35.0 && fbw.x > 0.3){ float ib=1.0-sscF(27.0,35.0,iceDist); biomeCol=mix(biomeCol,vec3(0.75,0.88,0.95),ib*fbw.x); }
-    // 泥潭
-    ${MUD_PITS.map(p => `{ float md=length(fWorldXZ-vec2(${p.x.toFixed(1)},${p.z.toFixed(1)})); if(md<${p.r.toFixed(1)}&&fbw.z>0.3){float mb=1.0-sscF(${(p.r-5).toFixed(1)},${p.r.toFixed(1)},md);biomeCol=mix(biomeCol,vec3(0.28,0.22,0.14),mb*fbw.z);} }`).join('\n')}
-    // 雨林深浅
-    if(fbw.z>0.3){float af=0.8+(gnoiseF(fWorldXZ*0.05)+gnoiseF(fWorldXZ*0.1)*0.5)/1.5*0.4;biomeCol*=mix(1.0,af,fbw.z);}
-    // 道路
-    float rd=gTrailDist(fWorldXZ);if(rd<6.0){float rb=1.0-sscF(4.0,6.0,rd);biomeCol=mix(biomeCol,vec3(0.45,0.42,0.40),rb*0.65);}
-    // 边缘雾
-    float eFade = 1.0 - sscF(${(TERRAIN_RADIUS-30).toFixed(1)}, ${TERRAIN_RADIUS.toFixed(1)}, length(worldPos4.xz - uCenter));
-    biomeCol = mix(vec3(0.85,0.78,0.63), biomeCol, eFade);
-    diffuseColor.rgb = biomeCol;
-    `
-  );
-}
+// GPU shader代码已移除 — 地形使用CPU计算的vertex position + vertex color
 
 // ============================================================
 // ROCKS — 大小不一的石块（含碰撞heightmap烘焙）
@@ -1545,38 +1418,9 @@ if (false) { /* removed GPU shader code */
 
     const mesh = new THREE.Mesh(geo, mat);
 
-    // 地形基础高度（不含石块，直接用地形噪声计算）
-    // 用和getTerrainHeight完全相同的阶梯逻辑（不含rockHeight）
-    const baseH = (() => {
-      const bw = getBiomeWeights(rock.x, rock.z);
-      const distC = Math.sqrt(rock.x * rock.x + rock.z * rock.z);
-      const ff = Math.min(1, distC / 30);
-      let h = 0;
-      if (bw.desert > 0.01) {
-        const bEnd = 120, shS = 140, dpS = 200;
-        const beachH = BIOME_BASE.desert + Math.abs(fbm(rock.x*0.008, rock.z*0.008, 3, 2.0, 0.5))*1.8 + 0.3;
-        const seaBedH = SEA_LEVEL - 1.5 - Math.abs(fbm(rock.x*0.005+200, rock.z*0.005+200, 3, 2.0, 0.5))*1.5;
-        let dH;
-        if (distC < bEnd) dH = beachH;
-        else if (distC < shS) { const t = smoothstepGlobal(bEnd, shS, distC); dH = beachH*(1-t) + (SEA_LEVEL+0.5)*t; }
-        else if (distC < dpS) { const t = smoothstepGlobal(shS, dpS, distC); dH = (SEA_LEVEL+0.5)*(1-t) + seaBedH*t; }
-        else dH = seaBedH;
-        h += dH * bw.desert;
-      }
-      if (bw.snow > 0.01) {
-        const n1 = Math.abs(fbm(rock.x*0.006+500, rock.z*0.006+500, 4, 2.0, 0.5))*6;
-        const n2 = Math.abs(fbm(rock.x*0.025+500, rock.z*0.025+500, 3, 2.5, 0.4))*2;
-        let sH = BIOME_BASE.snow + n1 + n2;
-        sH += getSnowHillHeight(rock.x, rock.z);
-        h += sH * bw.snow;
-      }
-      if (bw.jungle > 0.01) {
-        const n1 = Math.abs(fbm(rock.x*0.01-500, rock.z*0.01-500, 4, 2.0, 0.55))*5;
-        const n2 = Math.abs(fbm(rock.x*0.04-500, rock.z*0.04-500, 3, 2.5, 0.4))*1.5;
-        h += (BIOME_BASE.jungle + n1 + n2) * bw.jungle;
-      }
-      return h * ff;
-    })();
+    // 地形基础高度：直接用 getTerrainHeight - getRockHeight，与视觉地形完全一致
+    // （getRockHeight 此时只含已初始化过的石块，不含当前石块，避免循环）
+    const baseH = getTerrainHeight(rock.x, rock.z) - getRockHeight(rock.x, rock.z);
     rock.baseH = baseH;
 
     const rotY = rockRng(rock.seed + 0.3) * Math.PI * 2;
@@ -1584,7 +1428,7 @@ if (false) { /* removed GPU shader code */
     mesh.position.set(rock.x, baseH - rock.height * 0.15, rock.z);
     mesh.scale.set(scaleXZ, scaleY, scaleXZ);
     mesh.rotation.y = rotY;
-    mesh.castShadow = true;
+    mesh.castShadow = false;  // 石块不投射阴影（节省shadow pass）
     mesh.receiveShadow = true;
     scene.add(mesh);
     rock._mesh = mesh; // 保存引用供距离裁剪用
@@ -1624,6 +1468,19 @@ if (false) { /* removed GPU shader code */
     }
 
     rock.heightmap = { res: hmRes, data: hmData };
+  }
+
+  // 初始可见性
+  updateRockVisibility();
+}
+
+// 石头可见性：隐藏在地形 edgeFade 区域内的石头，避免浮空
+function updateRockVisibility() {
+  for (const rock of rocks) {
+    if (!rock._mesh) continue;
+    const dx = rock.x - terrainCenterX;
+    const dz = rock.z - terrainCenterZ;
+    rock._mesh.visible = (dx * dx + dz * dz) < (TERRAIN_RADIUS - 40) * (TERRAIN_RADIUS - 40);
   }
 }
 
@@ -1754,138 +1611,8 @@ function updateDayNight(dt) {
     scene.background = null; // 天空球代替背景色
 }
 
-// ============================================================
-// RAIN SYSTEM
-// ============================================================
-const rain = {
-  active: false,
-  intensity: 0,      // 0~1
-  targetIntensity: 0,
-  timer: 0,
-  nextToggle: 30 + Math.random() * 40, // 首次下雨在30~70秒后
-  particles: null,
-  geo: null,
-  velocities: [],
-};
-
-const RAIN_COUNT = 6000;
-const RAIN_AREA = 60;  // 雨区范围
-const RAIN_HEIGHT = 30;
-
-function initRain() {
-  rain.geo = new THREE.BufferGeometry();
-  const pos = new Float32Array(RAIN_COUNT * 3);
-  for (let i = 0; i < RAIN_COUNT; i++) {
-    pos[i * 3]     = (Math.random() - 0.5) * RAIN_AREA;
-    pos[i * 3 + 1] = Math.random() * RAIN_HEIGHT;
-    pos[i * 3 + 2] = (Math.random() - 0.5) * RAIN_AREA;
-    rain.velocities.push(15 + Math.random() * 10); // 下落速度
-  }
-  rain.geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-
-  const rainMat = new THREE.PointsMaterial({
-    color: 0xaaccee,
-    size: 0.15,
-    transparent: true,
-    opacity: 0.4,
-    depthWrite: false,
-    sizeAttenuation: true,
-  });
-
-  rain.particles = new THREE.Points(rain.geo, rainMat);
-  rain.particles.visible = false;
-  scene.add(rain.particles);
-}
-initRain();
-
-// 预分配的雨天颜色常量（避免每帧 new THREE.Color）
-const _rainAmbColor = new THREE.Color(0xb0b8c0);
-const _rainSkyTopColor = new THREE.Color(0x708090);
-const _rainSkyHorizonColor = new THREE.Color(0x909898);
-const _snowAmbColor = new THREE.Color(0xc0c8d8);
-const _snowSkyTopColor = new THREE.Color(0x607090);
-const _snowSkyHorizonColor = new THREE.Color(0xa0a8b0);
-const _fogSkyColor = new THREE.Color(0x909090);
-
-function updateRain(dt) {
-  // ---- 由天气日历驱动 ----
-  const curW = getCurrentWeather();
-  const nextW = getNextWeather();
-  const tp = weatherCal.transitionProgress;
-
-  // 混合当前和下一天的天气参数
-  const targetRain = curW.rain * (1 - tp) + nextW.rain * tp;
-  const targetSnowfall = curW.snowfall * (1 - tp) + nextW.snowfall * tp;
-  const targetFog = curW.fog * (1 - tp) + nextW.fog * tp;
-
-  // 降水=雨+雪
-  rain.targetIntensity = Math.max(targetRain, targetSnowfall);
-
-  // 平滑切换
-  rain.intensity += (rain.targetIntensity - rain.intensity) * dt * 0.8;
-  rain.active = rain.intensity > 0.05;
-
-  rain.particles.visible = rain.active;
-
-  // 移动粒子（仅在active时）
-  if (rain.active) {
-  rain.particles.material.opacity = rain.intensity * 0.5;
-
-  // 移动雨滴/雪花
-  const isSnowing = targetSnowfall > targetRain;
-  const fallSpeedMul = isSnowing ? 0.2 : 1.0; // 雪花下落慢5倍
-  const posArr = rain.geo.getAttribute('position');
-  for (let i = 0; i < RAIN_COUNT; i++) {
-    let y = posArr.getY(i);
-    y -= rain.velocities[i] * fallSpeedMul * dt;
-    // 雪花飘动
-    if (isSnowing) {
-      const wx = posArr.getX(i) + Math.sin(gameTime * 0.5 + i * 0.1) * 0.3 * dt;
-      posArr.setX(i, wx);
-    }
-    if (y < -2) {
-      y = RAIN_HEIGHT + Math.random() * 5;
-      posArr.setX(i, car.pos.x + (Math.random() - 0.5) * RAIN_AREA);
-      posArr.setZ(i, car.pos.z + (Math.random() - 0.5) * RAIN_AREA);
-    }
-    posArr.setY(i, y);
-  }
-  posArr.needsUpdate = true;
-  rain.particles.position.set(0, 0, 0); // 世界坐标
-  } // end if rain.active
-
-  // 天气影响光照
-  const weatherIntensity = Math.max(rain.intensity, targetSnowfall, targetFog * 5);
-  if (weatherIntensity > 0.05) {
-    const wi = Math.min(weatherIntensity, 1);
-    keyLight.intensity *= (1 - wi * 0.4);
-    ambientLight.intensity = Math.max(ambientLight.intensity, 0.6) + wi * 0.3;
-
-    if (targetSnowfall > targetRain) {
-      // 雪天色调
-      ambientLight.color.lerp(_snowAmbColor, wi * 0.6);
-      skyMat.uniforms.uTopColor.value.lerp(_snowSkyTopColor, wi * 0.5);
-      skyMat.uniforms.uHorizonColor.value.lerp(_snowSkyHorizonColor, wi * 0.5);
-      // 雪花更大更慢
-      rain.particles.material.size = 0.3;
-      rain.particles.material.color.set(0xeeeeff);
-    } else if (targetFog > 0.01) {
-      // 雾天
-      ambientLight.color.lerp(_rainAmbColor, wi * 0.4);
-      skyMat.uniforms.uTopColor.value.lerp(_fogSkyColor, targetFog * 20);
-      skyMat.uniforms.uHorizonColor.value.lerp(_fogSkyColor, targetFog * 20);
-    } else {
-      // 雨天
-      ambientLight.color.lerp(_rainAmbColor, wi * 0.6);
-      skyMat.uniforms.uTopColor.value.lerp(_rainSkyTopColor, wi * 0.5);
-      skyMat.uniforms.uHorizonColor.value.lerp(_rainSkyHorizonColor, wi * 0.5);
-      rain.particles.material.size = 0.15;
-      rain.particles.material.color.set(0xaaccee);
-    }
-    sceneFog.density = 0.004 + targetFog + wi * 0.004;
-  }
-
-  // biome对天空底色的影响
+// biome对天空底色的影响（每帧调用）
+function updateBiomeSkyTint() {
   const bw = getBiomeWeights(car.pos.x, car.pos.z);
   if (bw.snow > 0.3) {
     skyMat.uniforms.uBottomColor.value.lerp(SNOW_COLOR, bw.snow * 0.3);
@@ -2701,7 +2428,7 @@ function updateCarLights() {
   const sunI = keyLight.intensity;
   const ambI = ambientLight.intensity;
   const brightness = sunI * 0.7 + ambI * 0.3;
-  const rainDim = rain.intensity * 0.3;
+  const rainDim = 0; // 天气系统已移除
 
   // 低于阈值 = 环境暗（黄昏、夜晚、雨天）→ 自动开灯
   const shouldBeOn = (brightness - rainDim) < 0.8;
@@ -2798,91 +2525,36 @@ function updateCarLights() {
 }
 
 // ============================================================
-// TIRE TRACKS — 4 ribbon meshes with tire tread texture
+// TIRE TRACKS — 优化版 ribbon mesh（大幅降低地形查询 + polygonOffset消除穿帮）
 // ============================================================
-const TRACK_MAX_PTS = 4000;    // 大幅增加点数（永不消失需要更多）
-const TRACK_MIN_DIST = 0.08;  // 采样间距稍大一点节省内存
-const TIRE_WIDTH = 0.44;      // 宽度翻倍
-const TRACK_PEAK_ALPHA = 0.3; // 透明度降低50%
+const TRACK_MAX_PTS = 800;       // 每轨迹最多点数（降低内存）
+const TRACK_MIN_DIST = 0.12;     // 采样间距
+const TIRE_WIDTH = 0.44;
+const TRACK_PEAK_ALPHA = 0.3;
 
 const tracks = {};
-let gameTime = 0;
 
-// ---- 程序化生成轮胎花纹贴图 ----
-function createTireTexture() {
-  const cvs = document.createElement('canvas');
-  cvs.width = 64;
-  cvs.height = 128;
-  const ctx = cvs.getContext('2d');
-
-  // 透明背景（沟槽处 = 透明）
-  ctx.clearRect(0, 0, 64, 128);
-
-  // 越野胎纹：粗壮的人字形花纹块（不透明泥色）
-  const blockH = 16;
-  for (let row = 0; row < 128; row += blockH) {
-    const even = (row / blockH) % 2 === 0;
-
-    // 左侧花纹块
-    ctx.fillStyle = 'rgba(50, 45, 38, 255)';
-    ctx.beginPath();
-    if (even) {
-      ctx.moveTo(0, row + 3);
-      ctx.lineTo(27, row + 1);
-      ctx.lineTo(27, row + blockH - 3);
-      ctx.lineTo(0, row + blockH - 1);
-    } else {
-      ctx.moveTo(0, row + 1);
-      ctx.lineTo(27, row + 3);
-      ctx.lineTo(27, row + blockH - 1);
-      ctx.lineTo(0, row + blockH - 3);
-    }
-    ctx.fill();
-
-    // 右侧花纹块（镜像）
-    ctx.beginPath();
-    if (even) {
-      ctx.moveTo(64, row + 3);
-      ctx.lineTo(37, row + 1);
-      ctx.lineTo(37, row + blockH - 3);
-      ctx.lineTo(64, row + blockH - 1);
-    } else {
-      ctx.moveTo(64, row + 1);
-      ctx.lineTo(37, row + 3);
-      ctx.lineTo(37, row + blockH - 1);
-      ctx.lineTo(64, row + blockH - 3);
-    }
-    ctx.fill();
-  }
-
-  // 花纹块边缘加深（模拟压痕深度）
-  ctx.globalCompositeOperation = 'source-atop';
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-  for (let row = 0; row < 128; row += blockH) {
-    ctx.fillRect(0, row, 64, 2);
-    ctx.fillRect(0, row + blockH - 2, 64, 2);
-  }
-  ctx.globalCompositeOperation = 'source-over';
-
-  const tex = new THREE.CanvasTexture(cvs);
-  tex.wrapS = THREE.ClampToEdgeWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.magFilter = THREE.LinearFilter;
-  tex.minFilter = THREE.LinearMipMapLinearFilter;
-  return tex;
+// 地面类型 → 车辙颜色 & alpha（静态结果对象，避免GC）
+const _trackStyleResult = { r: 0.60, g: 0.52, b: 0.38, a: 0.30 };
+function _trackSurfaceStyle(p) {
+  if (p.onIce)              { _trackStyleResult.r=0.80; _trackStyleResult.g=0.90; _trackStyleResult.b=0.98; _trackStyleResult.a=0.12; }
+  else if (p.biome === 'snow')   { _trackStyleResult.r=0.88; _trackStyleResult.g=0.90; _trackStyleResult.b=0.93; _trackStyleResult.a=0.18; }
+  else if (p.biome === 'desert') { _trackStyleResult.r=1.20; _trackStyleResult.g=1.00; _trackStyleResult.b=0.70; _trackStyleResult.a=0.25; }
+  else { _trackStyleResult.r=0.60; _trackStyleResult.g=0.52; _trackStyleResult.b=0.38; _trackStyleResult.a=0.30; }
+  return _trackStyleResult;
 }
-const tireTexture = createTireTexture();
 
 function initTrack(label) {
   const maxV = TRACK_MAX_PTS * 2;
   const pos = new Float32Array(maxV * 3);
   const uv  = new Float32Array(maxV * 2);
   const alp = new Float32Array(maxV);
+  const col = new Float32Array(maxV * 3);
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  geo.setAttribute('alpha', new THREE.BufferAttribute(alp, 1));
-
+  geo.setAttribute('position',   new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv',         new THREE.BufferAttribute(uv,  2));
+  geo.setAttribute('alpha',      new THREE.BufferAttribute(alp, 1));
+  geo.setAttribute('trackColor', new THREE.BufferAttribute(col, 3));
   const idx = [];
   for (let i = 0; i < TRACK_MAX_PTS - 1; i++) {
     const b = i * 2;
@@ -2890,33 +2562,35 @@ function initTrack(label) {
   }
   geo.setIndex(idx);
   geo.setDrawRange(0, 0);
-
   const mat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    uniforms: {
-      tireMap: { value: tireTexture },
-    },
+    // polygonOffset 让车辙稍微偏向相机，消除z-fighting穿帮
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+    uniforms: { tireMap: { value: tireTexture } },
     vertexShader: `
       attribute float alpha;
+      attribute vec3 trackColor;
       varying float vA;
       varying vec2 vUv;
+      varying vec3 vCol;
       void main() {
-        vA = alpha;
-        vUv = uv;
+        vA = alpha; vUv = uv; vCol = trackColor;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
       uniform sampler2D tireMap;
       varying float vA;
       varying vec2 vUv;
+      varying vec3 vCol;
       void main() {
         vec4 tex = texture2D(tireMap, vUv);
-        gl_FragColor = vec4(tex.rgb, vA * tex.a);
+        gl_FragColor = vec4(vCol * tex.rgb, vA * tex.a);
       }`,
   });
-
   const mesh = new THREE.Mesh(geo, mat);
   mesh.frustumCulled = false;
   scene.add(mesh);
@@ -2936,56 +2610,91 @@ function addTrackPoint(label, wx, wz, heading) {
     segDist = Math.sqrt(d2);
   }
   t.totalDist += segDist;
-  const y = getTerrainHeight(wx, wz) + 0.02; // 缓存地形高度（避免每帧重算）
-  pts.push({ x: wx, z: wz, y, h: heading, t: gameTime, d: t.totalDist });
+  const y = getTerrainHeight(wx, wz);
+  const biome = getBiomeName(wx, wz);
+  const onIce = isInIceLake(wx, wz);
+  pts.push({ x: wx, z: wz, y, h: heading, t: gameTime, d: t.totalDist, biome, onIce });
 }
 
+// 车辙更新计数器：不用每帧全量更新所有点，分帧处理
+let _trackFullUpdateTimer = 0;
+
 function updateTracks() {
-  // UV纹理重复率：每多少世界单位重复一次胎纹图案
-  const UV_REPEAT = 0.6; // 每0.6m重复一次花纹
+  const UV_REPEAT = 0.6;
+  // 只对最近30个点做实时高度查询
+  const LIVE_Y_PTS = 30;
+  // 全量更新每0.5秒做一次（edgeFade/颜色/位置），中间帧只更新尾部新增点
+  _trackFullUpdateTimer += 1;
+  const doFullUpdate = _trackFullUpdateTimer >= 30; // ~每0.5秒(60fps)
+  if (doFullUpdate) _trackFullUpdateTimer = 0;
 
   for (const label in tracks) {
     const t = tracks[label];
     const pts = t.pts;
-
-    // 只做硬上限裁剪（车辙永不消失，但受点数上限约束）
     while (pts.length > TRACK_MAX_PTS) pts.shift();
-
     const posA = t.geo.getAttribute('position');
     const uvA  = t.geo.getAttribute('uv');
     const alpA = t.geo.getAttribute('alpha');
+    const colA = t.geo.getAttribute('trackColor');
     const n = pts.length;
-
-    // 基准距离（第一个点的累计距离，用于UV偏移）
     const baseDist = n > 0 ? pts[0].d : 0;
 
-    for (let i = 0; i < n; i++) {
+    // 确定本帧需要更新的范围
+    // 每帧只更新最后 LIVE_Y_PTS 个点（新增+高度活跃）
+    // 全量更新时处理所有点
+    const updateStart = doFullUpdate ? 0 : Math.max(0, n - LIVE_Y_PTS - 2);
+
+    for (let i = updateStart; i < n; i++) {
       const p = pts[i];
       const px = Math.cos(p.h) * TIRE_WIDTH;
       const pz = -Math.sin(p.h) * TIRE_WIDTH;
       const vi = i * 2;
 
-      // 世界坐标位置（使用缓存的地形高度）
-      posA.setXYZ(vi,     p.x - px, p.y, p.z - pz);
-      posA.setXYZ(vi + 1, p.x + px, p.y, p.z + pz);
+      const ldx = p.x - terrainCenterX, ldz = p.z - terrainCenterZ;
+      const ldist = Math.sqrt(ldx * ldx + ldz * ldz);
+      const ef = Math.max(0, 1 - smoothstepGlobal(TERRAIN_RADIUS - 30, TERRAIN_RADIUS, ldist));
+      if (ef <= 0) {
+        posA.setXYZ(vi, 0, 0, 0); posA.setXYZ(vi+1, 0, 0, 0);
+        alpA.setX(vi, 0); alpA.setX(vi+1, 0);
+        continue;
+      }
 
-      // UV：U=横向(0~1)，V=纵向沿行驶距离重复
+      const liveY = i >= n - LIVE_Y_PTS;
+      let yL, yR;
+      if (liveY) {
+        yL = getTerrainHeight(p.x - px, p.z - pz);
+        yR = getTerrainHeight(p.x + px, p.z + pz);
+      } else {
+        yL = yR = p.y;
+      }
+      const renderYL = yL * ef;
+      const renderYR = yR * ef;
+
+      posA.setXYZ(vi,     p.x - px, renderYL, p.z - pz);
+      posA.setXYZ(vi + 1, p.x + px, renderYR, p.z + pz);
+
       const v = (p.d - baseDist) / UV_REPEAT;
-      uvA.setXY(vi,     0, v);
-      uvA.setXY(vi + 1, 1, v);
+      uvA.setXY(vi,   0, v);
+      uvA.setXY(vi+1, 1, v);
 
-      // 固定透明度（不淡出）
-      alpA.setX(vi, TRACK_PEAK_ALPHA);
-      alpA.setX(vi + 1, TRACK_PEAK_ALPHA);
+      const style = _trackSurfaceStyle(p);
+      const a = style.a * ef;
+      alpA.setX(vi, a); alpA.setX(vi+1, a);
+      colA.setXYZ(vi,   style.r, style.g, style.b);
+      colA.setXYZ(vi+1, style.r, style.g, style.b);
     }
-    for (let i = n * 2; i < TRACK_MAX_PTS * 2; i++) {
-      posA.setXYZ(i, 0, 0, 0);
-      uvA.setXY(i, 0, 0);
-      alpA.setX(i, 0);
+
+    // 全量更新时清空未使用的顶点
+    if (doFullUpdate) {
+      for (let i = n * 2; i < TRACK_MAX_PTS * 2; i++) {
+        posA.setXYZ(i, 0, 0, 0); uvA.setXY(i, 0, 0); alpA.setX(i, 0);
+      }
     }
+
     posA.needsUpdate = true;
-    uvA.needsUpdate = true;
+    uvA.needsUpdate  = true;
     alpA.needsUpdate = true;
+    colA.needsUpdate = true;
     t.geo.setDrawRange(0, Math.max(0, n - 1) * 6);
   }
 }
@@ -3083,23 +2792,24 @@ function updateTruck(dt) {
   const targetBL = (-ltP - ltR);
   const targetBR = (-ltP + ltR);
 
-  // 弹簧-阻尼系统更新
+  // 弹簧-阻尼系统更新（使用预分配对象避免GC）
+  const _springResult = { pos: 0, vel: 0 };
   function updateSpring(current, vel, target, dt) {
     const force = (target - current) * SUSP_SPRING_K - vel * SUSP_SPRING_D;
     const newVel = vel + force * dt;
     let newPos = current + newVel * dt;
     newPos = Math.max(-MAX_EXTEND, Math.min(MAX_COMPRESS, newPos));
-    return { pos: newPos, vel: newVel };
+    _springResult.pos = newPos; _springResult.vel = newVel;
+    return _springResult;
   }
 
   let sFL = updateSpring(car.springFL, car.springVelFL, targetFL, dt);
-  let sFR = updateSpring(car.springFR, car.springVelFR, targetFR, dt);
-  let sBL = updateSpring(car.springBL, car.springVelBL, targetBL, dt);
-  let sBR = updateSpring(car.springBR, car.springVelBR, targetBR, dt);
-
   car.springFL = sFL.pos; car.springVelFL = sFL.vel;
+  let sFR = updateSpring(car.springFR, car.springVelFR, targetFR, dt);
   car.springFR = sFR.pos; car.springVelFR = sFR.vel;
+  let sBL = updateSpring(car.springBL, car.springVelBL, targetBL, dt);
   car.springBL = sBL.pos; car.springVelBL = sBL.vel;
+  let sBR = updateSpring(car.springBR, car.springVelBR, targetBR, dt);
   car.springBR = sBR.pos; car.springVelBR = sBR.vel;
 
   // ============================================================
@@ -3130,9 +2840,41 @@ function updateTruck(dt) {
     smoothInited = true;
   }
   const smoothRate = Math.min(1, 10 * dt);
-  smoothBodyY += (targetBodyY - smoothBodyY) * smoothRate;
-  smoothBodyPitch += (targetBodyPitch - smoothBodyPitch) * smoothRate;
-  smoothBodyRoll += (targetBodyRoll - smoothBodyRoll) * smoothRate;
+
+  // 上升和下降都限速，防止地形突变导致跳帧
+  const dyTarget = targetBodyY - smoothBodyY;
+  const maxRise = 8.0 * dt; // 最大上升速率 8m/s（提高以避免穿模）
+  const maxFall = 5.0 * dt; // 最大下降速率 5m/s
+  let clampedDy;
+  if (dyTarget > 0) {
+    clampedDy = Math.min(dyTarget * smoothRate, maxRise);
+  } else {
+    clampedDy = Math.max(dyTarget * smoothRate, -maxFall);
+  }
+  smoothBodyY += clampedDy;
+
+  // 硬底保护：绝对不能低于地形高度（防穿模）
+  const terrainFloor = getTerrainHeight(car.pos.x, car.pos.z);
+  if (smoothBodyY < terrainFloor) {
+    smoothBodyY = terrainFloor;
+  }
+
+  // 冰面检测（只调用一次，复用结果）
+  const onIce = isInIceLake(car.pos.x, car.pos.z);
+
+  // 冰面地板保护：用平滑过渡替代硬 clamp，消除进出冰面时的高度跳变
+  if (onIce) {
+    const iceFloor = BIOME_BASE.snow + 2.0;
+    if (smoothBodyY < iceFloor) {
+      // 平滑上推到冰面高度，而非硬 clamp
+      smoothBodyY += (iceFloor - smoothBodyY) * Math.min(1, 15 * dt);
+    }
+  }
+
+  // 冰面：地面平坦，pitch/roll 用更低的跟随速率压制抖动
+  const orientRate = onIce ? Math.min(1, 3 * dt) : smoothRate;
+  smoothBodyPitch += (targetBodyPitch - smoothBodyPitch) * orientRate;
+  smoothBodyRoll  += (targetBodyRoll  - smoothBodyRoll)  * orientRate;
 
   car.pos.y = smoothBodyY;
 
@@ -3917,9 +3659,11 @@ function emitSpray(label, wx, wy, wz, carSpeed, heading) {
   // 当前biome配置
   const biome = getBiomeName(wx, wz);
   const cfg = SPRAY_CONFIG[biome] || SPRAY_CONFIG.desert;
+  const onIce = isInIceLake(wx, wz);
+  const iceScale = onIce ? 0.2 : 1.0; // 冰面粒子缩小到0.2倍
 
-  // 每帧发射量：速度越快越多
-  const emitCount = Math.min(8, Math.floor(absSpeed * 0.4));
+  // 每帧发射量：速度越快越多（冰面减少发射量）
+  const emitCount = Math.min(8, Math.floor(absSpeed * 0.4 * iceScale));
   const posArr = sp.geo.getAttribute('position');
   const sizeAttr = sp.geo.getAttribute('size');
   const colorAttr = sp.geo.getAttribute('aColor');
@@ -3930,13 +3674,13 @@ function emitSpray(label, wx, wy, wz, carSpeed, heading) {
     const i = sp.nextIdx;
     sp.nextIdx = (sp.nextIdx + 1) % SPRAY_COUNT;
 
-    // 发射位置：轮子附近随机偏移
-    const offX = (Math.random() - 0.5) * 0.4;
-    const offZ = (Math.random() - 0.5) * 0.4;
-    posArr.setXYZ(i, wx + offX, wy + 0.05 + Math.random() * 0.1, wz + offZ);
+    // 发射位置：轮子附近随机偏移（冰面缩小范围）
+    const offX = (Math.random() - 0.5) * 0.4 * iceScale;
+    const offZ = (Math.random() - 0.5) * 0.4 * iceScale;
+    posArr.setXYZ(i, wx + offX, wy + 0.05 + Math.random() * 0.1 * iceScale, wz + offZ);
 
-    // 速度：向后方喷射 + 随机扩散
-    const speedFactor = absSpeed * 0.3 * cfg.speedMult;
+    // 速度：向后方喷射 + 随机扩散（冰面缩小速度）
+    const speedFactor = absSpeed * 0.3 * cfg.speedMult * iceScale;
     const backX = -Math.sin(heading) * speedFactor;
     const backZ = -Math.cos(heading) * speedFactor;
     // 随机偏转角（扩散）
@@ -3950,10 +3694,8 @@ function emitSpray(label, wx, wy, wz, carSpeed, heading) {
     sp.vel[i * 3 + 1] = vy;
     sp.vel[i * 3 + 2] = vz;
 
-    // 随机大小
-    const size = cfg.sizeMin + Math.random() * (cfg.sizeMax - cfg.sizeMin);
-    // 大粒子更少（幂律分布偏向小粒子）
-    const sizePow = cfg.sizeMin + Math.pow(Math.random(), 1.8) * (cfg.sizeMax - cfg.sizeMin);
+    // 随机大小（冰面粒子缩小）
+    const sizePow = (cfg.sizeMin + Math.pow(Math.random(), 1.8) * (cfg.sizeMax - cfg.sizeMin)) * iceScale;
     sizeAttr.setX(i, sizePow);
 
     // 每粒子颜色微调（自然变化）
@@ -4296,40 +4038,48 @@ function animateItemFlyIn(icon, slotIdx) {
   const endX = slotRect.left + slotRect.width / 2 - 14;
   const endY = slotRect.top + slotRect.height / 2 - 14;
 
-  // 用requestAnimationFrame做贝塞尔曲线飞行
-  const duration = 600; // ms
+  // 变速飞行：先上抬（ease-out），再加速飞向目标（ease-in）
+  const RISE = 220, FLY = 360; // ms
+  const riseEndX = startX, riseEndY = startY - 80;
   const t0 = performance.now();
-  // 抛物线控制点（先飞高再落下）
-  const cpX = (startX + endX) / 2 + (Math.random() - 0.5) * 100;
-  const cpY = Math.min(startY, endY) - 120 - Math.random() * 60;
 
   function step(now) {
-    let t = (now - t0) / duration;
-    if (t > 1) t = 1;
-    // 二次贝塞尔
-    const u = 1 - t;
-    const x = u * u * startX + 2 * u * t * cpX + t * t * endX;
-    const y = u * u * startY + 2 * u * t * cpY + t * t * endY;
-    const s = 1 + 0.3 * Math.sin(t * Math.PI); // 中途放大
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.style.transform = `scale(${s})`;
-    el.style.opacity = String(t < 0.8 ? 1 : 1 - (t - 0.8) / 0.2);
-    if (t < 1) requestAnimationFrame(step);
-    else {
-      el.remove();
-      // 槽位闪烁
-      if (slotEl) {
-        slotEl.style.boxShadow = '0 0 20px rgba(255,200,50,0.8)';
-        setTimeout(() => { slotEl.style.boxShadow = ''; }, 400);
+    const elapsed = now - t0;
+    if (elapsed < RISE) {
+      const t = elapsed / RISE;
+      const eased = 1 - (1 - t) * (1 - t);
+      const cy = startY + (riseEndY - startY) * eased;
+      const s = 1 + 0.6 * Math.sin(t * Math.PI);
+      el.style.left = (riseEndX - 14) + 'px';
+      el.style.top = (cy - 14) + 'px';
+      el.style.transform = `scale(${s})`;
+      el.style.opacity = '1';
+    } else {
+      const t = Math.min(1, (elapsed - RISE) / FLY);
+      const eased = t * t; // ease-in 加速
+      const cx = riseEndX + (endX - riseEndX) * eased;
+      const cy = riseEndY + (endY - riseEndY) * eased;
+      const s = 1.5 - 0.5 * t;
+      el.style.left = cx + 'px';
+      el.style.top = cy + 'px';
+      el.style.transform = `scale(${s})`;
+      el.style.opacity = String(t < 0.75 ? 1 : 1 - (t - 0.75) / 0.25);
+      if (t >= 1) {
+        el.remove();
+        if (slotEl) {
+          slotEl.style.boxShadow = '0 0 20px rgba(255,200,50,0.8)';
+          setTimeout(() => { slotEl.style.boxShadow = ''; }, 400);
+        }
+        return;
       }
     }
+    requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
 }
 
 // 彩带爆炸粒子系统（Three.js场景中）
-const CONFETTI_COUNT = 80;
+const CONFETTI_COUNT = 160;
 const confettiGeo = new THREE.BufferGeometry();
 const confettiPosArr = new Float32Array(CONFETTI_COUNT * 3);
 const confettiColArr = new Float32Array(CONFETTI_COUNT * 3);
@@ -4350,8 +4100,8 @@ const confettiMat = new THREE.ShaderMaterial({
     void main() {
       vColor = aColor;
       vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      gl_PointSize = size * (200.0 / -mvPos.z);
-      gl_PointSize = clamp(gl_PointSize, 1.0, 40.0);
+      gl_PointSize = size * (320.0 / -mvPos.z);
+      gl_PointSize = clamp(gl_PointSize, 2.0, 80.0);
       gl_Position = projectionMatrix * mvPos;
     }
   `,
@@ -4384,18 +4134,18 @@ function emitConfetti(wx, wy, wz) {
   for (let i = 0; i < CONFETTI_COUNT; i++) {
     const idx = (confettiNextIdx + i) % CONFETTI_COUNT;
     posAttr.setXYZ(idx, wx, wy + 1.5, wz);
-    // 随机方向爆炸
+    // 随机方向爆炸（速度更大，全向均匀）
     const theta = Math.random() * Math.PI * 2;
-    const phi = Math.random() * Math.PI * 0.6;
-    const spd = 3 + Math.random() * 6;
+    const phi = Math.random() * Math.PI * 0.75;
+    const spd = 8 + Math.random() * 14; // 更快初速
     confettiVel[idx * 3]     = Math.cos(theta) * Math.sin(phi) * spd;
-    confettiVel[idx * 3 + 1] = Math.cos(phi) * spd + 2;
+    confettiVel[idx * 3 + 1] = Math.cos(phi) * spd + 4; // 向上分量更大
     confettiVel[idx * 3 + 2] = Math.sin(theta) * Math.sin(phi) * spd;
     // 随机颜色
     const c = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
     colAttr.setXYZ(idx, c[0], c[1], c[2]);
-    sizeAttr.setX(idx, 0.15 + Math.random() * 0.25);
-    confettiLife[idx] = 1.2 + Math.random() * 0.8;
+    sizeAttr.setX(idx, 0.55 + Math.random() * 0.75); // 更大粒子
+    confettiLife[idx] = 0.7 + Math.random() * 0.5; // 更短但更猛
   }
   confettiNextIdx = (confettiNextIdx + CONFETTI_COUNT) % CONFETTI_COUNT;
 }
@@ -4413,7 +4163,7 @@ function updateConfetti(dt) {
       continue;
     }
     any = true;
-    confettiVel[i * 3 + 1] -= 6.0 * dt; // 轻飘的重力
+    confettiVel[i * 3 + 1] -= 14.0 * dt; // 爆炸重力（快速落地）
     confettiVel[i * 3] *= 0.98;      // 空气阻力
     confettiVel[i * 3 + 2] *= 0.98;
     // 飘动
@@ -4444,8 +4194,8 @@ boxLoader.load('question_mark_box/scene.gltf', (gltf) => {
   const bb1 = new THREE.Box3().setFromObject(raw);
   const size1 = bb1.getSize(new THREE.Vector3());
   const maxDim = Math.max(size1.x, size1.y, size1.z);
-  // 缩放到目标尺寸（约1.5m高）
-  const targetSize = 1.5;
+  // 缩放到目标尺寸（约1.8m高，1.2倍放大）
+  const targetSize = 1.5 * 1.2;
   const sc = targetSize / Math.max(maxDim, 0.001);
   raw.scale.multiplyScalar(sc);
 
@@ -4521,7 +4271,7 @@ const MAX_BOXES = 8;
 function updateTreasureBoxes(dt) {
   _boxSpawnTimer += dt;
   // 定期补充箱子
-  const activeCount = treasureBoxes.filter(b => !b.collected).length;
+  let activeCount = 0; for (let _bi = 0; _bi < treasureBoxes.length; _bi++) if (!treasureBoxes[_bi].collected) activeCount++;
   if (_boxSpawnTimer > 8 && activeCount < MAX_BOXES && boxTemplate) {
     _boxSpawnTimer = 0;
     spawnTreasureBox();
@@ -4555,16 +4305,16 @@ function updateTreasureBoxes(dt) {
       // 彩带爆炸
       emitConfetti(box.wx, box.group.position.y, box.wz);
 
-      // 箱子爆炸消失动画（缩小+弹起）
+      // 箱子爆炸消失动画：先瞬间膨胀再快速消失
       const g = box.group;
-      let anim = 0;
       const origY = g.position.y;
-      function explodeStep() {
-        anim += 0.016;
-        const t = Math.min(anim / 0.4, 1);
-        const s = 1 - t;
-        g.scale.setScalar(s);
-        g.position.y = origY + t * 3; // 弹起
+      const t0box = performance.now();
+      function explodeStep(now) {
+        const t = Math.min((now - t0box) / 180, 1); // 0.18s 完成
+        // 先快速膨胀到1.6倍再收缩消失
+        const s = t < 0.3 ? (1 + t / 0.3 * 0.6) : (1.6 * (1 - (t - 0.3) / 0.7));
+        g.scale.setScalar(Math.max(0, s));
+        g.position.y = origY + t * 2;
         if (t < 1) requestAnimationFrame(explodeStep);
         else g.visible = false;
       }
@@ -4593,10 +4343,32 @@ function updateTreasureBoxes(dt) {
 // GOLD COIN SYSTEM
 // ============================================================
 let playerCoins = 0;
-function addCoin(n) {
+function addCoin(n, animate) {
   playerCoins += n;
   const el = document.getElementById('coinCount');
   if (el) el.textContent = String(playerCoins);
+  if (animate && n > 0) {
+    // +N 文字动画：从金币栏位置向上飘出
+    const coinBar = document.getElementById('coinBar');
+    const rect = coinBar ? coinBar.getBoundingClientRect() : { left: window.innerWidth - 130, top: 18, width: 80, height: 24 };
+    const plusEl = document.createElement('div');
+    plusEl.innerHTML = '+' + n + ' <svg width="18" height="18" viewBox="0 0 24 24" style="vertical-align:middle;"><circle cx="12" cy="12" r="11" fill="#ffd700" stroke="#b8860b" stroke-width="1.5"/><polygon points="12,3.5 13.8,9.2 19.8,9.2 14.9,12.8 16.7,18.5 12,14.8 7.3,18.5 9.1,12.8 4.2,9.2 10.2,9.2" fill="#b8860b"/></svg>';
+    plusEl.style.cssText = 'position:fixed;left:' + (rect.left + rect.width / 2) + 'px;top:' + rect.top + 'px;' +
+      'color:#ffd700;font-size:20px;font-weight:bold;pointer-events:none;z-index:200;' +
+      'text-shadow:0 0 8px rgba(255,215,0,0.9),0 1px 3px rgba(0,0,0,0.7);transform:translateX(-50%)';
+    document.body.appendChild(plusEl);
+    const startTime = performance.now();
+    (function frame() {
+      const age = (performance.now() - startTime) / 1000;
+      if (age > 0.9) { plusEl.remove(); return; }
+      const dy = age * 60;
+      plusEl.style.transform = 'translateX(-50%) translateY(-' + dy + 'px)';
+      plusEl.style.opacity = String(Math.max(0, 1 - age * 1.3));
+      requestAnimationFrame(frame);
+    })();
+    // 金币数字闪烁
+    if (el) { el.style.textShadow = '0 0 14px #ffd700,0 0 6px #ff9900'; setTimeout(() => { if(el) el.style.textShadow = ''; }, 500); }
+  }
 }
 
 // 金币3D模型 — 立起来的金币（圆盘竖立，绕Y轴旋转时像硬币旋转）
@@ -4644,15 +4416,16 @@ const flyCoins = [];
 const COIN_DURATION = 1.5; // 总时长秒
 const COIN_RISE_HEIGHT = 4.5; // 最大上升高度
 
-function spawnFlyCoin(wx, wy, wz) {
-  if (!coinTemplate) { addCoin(1); return; }
+function spawnFlyCoin(wx, wy, wz, amount) {
+  amount = amount || 1;
+  if (!coinTemplate) { addCoin(amount, true); return; }
   const coin = coinTemplate.clone();
   coin.position.set(wx, wy, wz);
   scene.add(coin);
   // 预缓存所有材质引用（避免每帧traverse）
   const mats = [];
   coin.traverse(c => { if (c.isMesh && c.material) { c.material = c.material.clone(); c.material.transparent = true; mats.push(c.material); } });
-  flyCoins.push({ mesh: coin, age: 0, startY: wy, startX: wx, startZ: wz, mats });
+  flyCoins.push({ mesh: coin, age: 0, startY: wy, startX: wx, startZ: wz, mats, amount });
 }
 
 function updateFlyCoins(dt) {
@@ -4664,10 +4437,7 @@ function updateFlyCoins(dt) {
     if (t >= 1) {
       disposeObject(fc.mesh);
       flyCoins.splice(i, 1);
-      addCoin(1);
-      // UI金币+1闪烁
-      const coinEl = document.getElementById('coinCount');
-      if (coinEl) { coinEl.style.textShadow = '0 0 12px #ffd700'; setTimeout(() => { coinEl.style.textShadow = ''; }, 400); }
+      addCoin(fc.amount || 1, true);
       continue;
     }
 
@@ -4810,9 +4580,47 @@ function spawnStuckNPC() {
   helpSprite.visible = false; // 近距离才显示
   group.add(helpSprite);
 
+  // 找轮子 pivot（与玩家车相同结构：WTmesh_XX_pivot）
+  const _npcWheels = [];
+  npcCar.traverse(c => {
+    if (c.name === 'WTmesh_FL_pivot' || c.name === 'WTmesh_FR_pivot' ||
+        c.name === 'WTmesh_BL_pivot' || c.name === 'WTmesh_BR_pivot') {
+      _npcWheels.push(c);
+    }
+  });
+
+  // 救援有效区域 — 半透明圆形标识（8m半径）
+  const rescueZoneGeo = new THREE.RingGeometry(7.5, 8.0, 48);
+  rescueZoneGeo.rotateX(-Math.PI / 2);
+  const rescueZoneMat = new THREE.MeshBasicMaterial({
+    color: 0x44aaff, transparent: true, opacity: 0.25,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  const rescueZone = new THREE.Mesh(rescueZoneGeo, rescueZoneMat);
+  // 内部填充
+  const rescueZoneFillGeo = new THREE.CircleGeometry(7.5, 48);
+  rescueZoneFillGeo.rotateX(-Math.PI / 2);
+  const rescueZoneFillMat = new THREE.MeshBasicMaterial({
+    color: 0x44aaff, transparent: true, opacity: 0.08,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  const rescueZoneFill = new THREE.Mesh(rescueZoneFillGeo, rescueZoneFillMat);
+  rescueZone.add(rescueZoneFill);
+  rescueZone.position.y = -sinkY + 1.5; // 车身一半高度，避免地面/冰面穿模
+  rescueZone.renderOrder = 999;
+  rescueZone.castShadow = false;
+  rescueZone.receiveShadow = false;
+  group.add(rescueZone);
+
   stuckNPCs.push({
     group, wx, wz, biome, rescued: false,
     helpSprite, _removeTimer: 0,
+    _vx: 0, _vz: 0,          // 碰撞速度
+    _wheels: _npcWheels,      // 轮子 pivot 引用
+    _spinAngle: 0,            // 轮子累计转角
+    _npcSmoothY: group.position.y,
+    _npcSmoothPitch: tiltX,
+    _rescueZone: rescueZone,  // 救援区域mesh引用
   });
 }
 
@@ -4842,6 +4650,8 @@ const towState = {
   towDir: { x: 0, z: 0 }, // 拖拽方向（箭头指向）
   towAnchor: { x: 0, z: 0 }, // 绳子连接NPC的点（车头或车尾）
   isFront: true,     // 箭头在车头还是车尾
+  isValid: false,    // 当前是否正确拖拽方向（供相机系统读取）
+  camBlend: 0,       // 救援镜头混合因子 0~1（平滑过渡用）
   shakePhase: 0,
 };
 
@@ -4868,18 +4678,18 @@ function createTowRope() {
 }
 
 function updateTowRopeGeometry(ropeMesh, x0, y0, z0, x1, y1, z1) {
+  // NaN保护：如果任何坐标无效，跳过更新避免渲染卡死
+  if (!isFinite(x0+y0+z0+x1+y1+z1)) return;
   const posAttr = ropeMesh.geometry.getAttribute('position');
   const midX = (x0 + x1) / 2, midZ = (z0 + z1) / 2;
   const midY = Math.min(y0, y1) - 0.4; // 下垂
   const ropeWidth = 0.06;
-  // 沿绳子方向的法向量（用于ribbon宽度）
   const dx = x1 - x0, dz = z1 - z0;
   const len = Math.sqrt(dx * dx + dz * dz) || 1;
   const nx = -dz / len * ropeWidth, nz = dx / len * ropeWidth;
 
   for (let i = 0; i <= ROPE_SEGMENTS; i++) {
     const t = i / ROPE_SEGMENTS;
-    // 二次贝塞尔插值 p0→mid→p1
     const u = 1 - t;
     const px = u * u * x0 + 2 * u * t * midX + t * t * x1;
     const py = u * u * y0 + 2 * u * t * midY + t * t * y1;
@@ -4891,15 +4701,16 @@ function updateTowRopeGeometry(ropeMesh, x0, y0, z0, x1, y1, z1) {
   ropeMesh.geometry.computeBoundingSphere();
 }
 
-// 创建方向箭头
+// 创建方向箭头（黄色，更大更明显）
 function createTowArrow() {
   const shape = new THREE.Shape();
-  shape.moveTo(0, 1.2); shape.lineTo(-0.5, 0); shape.lineTo(-0.2, 0);
-  shape.lineTo(-0.2, -1); shape.lineTo(0.2, -1); shape.lineTo(0.2, 0);
-  shape.lineTo(0.5, 0); shape.closePath();
+  // 粗壮的箭头：尖端在 y=1.5，宽翼，厚箭杆
+  shape.moveTo(0, 1.5); shape.lineTo(-0.8, 0.2); shape.lineTo(-0.3, 0.2);
+  shape.lineTo(-0.3, -1.2); shape.lineTo(0.3, -1.2); shape.lineTo(0.3, 0.2);
+  shape.lineTo(0.8, 0.2); shape.closePath();
   const geo = new THREE.ShapeGeometry(shape);
   geo.rotateX(-Math.PI / 2);
-  const mat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthTest: false });
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffdd00, transparent: true, opacity: 0.92, side: THREE.DoubleSide, depthTest: false });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.renderOrder = 999;
   scene.add(mesh);
@@ -4907,6 +4718,7 @@ function createTowArrow() {
 }
 
 function startTow(npc) {
+  console.log('[TOW] startTow called, npc at:', npc.wx.toFixed(1), npc.wz.toFixed(1), 'onIce:', isInIceLake(npc.wx, npc.wz));
   // 消耗物品（飞出动画）
   const hookSlot = consumeInventoryItem('拖车钩');
   const ropeSlot = consumeInventoryItem('拖车绳');
@@ -4922,44 +4734,71 @@ function startTow(npc) {
   const h = npc.group.rotation.y;
   const fwdX = Math.sin(h), fwdZ = Math.cos(h); // NPC车头方向
 
-  // 随机选择箭头在车头还是车尾
-  towState.isFront = Math.random() < 0.5;
-  if (towState.isFront) {
-    // 车头：拖拽方向 = 前方，绳子连车头
-    towState.towDir = { x: fwdX, z: fwdZ };
-    towState.towAnchor = { x: npc.wx + fwdX * 2.5, z: npc.wz + fwdZ * 2.5 };
-  } else {
-    // 车尾：拖拽方向 = 后方，绳子连车尾
-    towState.towDir = { x: -fwdX, z: -fwdZ };
-    towState.towAnchor = { x: npc.wx - fwdX * 2.5, z: npc.wz - fwdZ * 2.5 };
-  }
+  // 箭头始终在车头，拖拽方向 = 车头前方
+  towState.isFront = true;
+  towState.towDir = { x: fwdX, z: fwdZ };
+  towState.towAnchor = { x: npc.wx + fwdX * 2.5, z: npc.wz + fwdZ * 2.5 };
 
   // 创建绳子和箭头
   towState.rope = createTowRope();
   towState.arrow = createTowArrow();
-  // 箭头放在对应位置（车头或车尾前方地面）
-  const ax = towState.towAnchor.x + towState.towDir.x * 2;
-  const az = towState.towAnchor.z + towState.towDir.z * 2;
+  // 箭头放在车头前方地面
+  const ax = towState.towAnchor.x + fwdX * 2;
+  const az = towState.towAnchor.z + fwdZ * 2;
   towState.arrow.position.set(ax, getTerrainHeight(ax, az) + 0.15, az);
-  // 箭头朝向拖拽方向
-  towState.arrow.rotation.y = -Math.atan2(towState.towDir.x, towState.towDir.z);
-  towState.arrow.scale.set(1.5, 1.5, 1.5);
+  // 箭头尖端朝向车头前方：几何体默认尖端在局部 -Z，需转 h+PI 使其指向 fwdX/fwdZ
+  towState.arrow.rotation.y = h + Math.PI;
+  towState.arrow.scale.set(1.75, 1.75, 1.75);
 }
 
 function endTow(success) {
+  console.log('[TOW] endTow called, success:', success);
   if (towState.rope) { disposeObject(towState.rope); towState.rope = null; }
   if (towState.arrow) { disposeObject(towState.arrow); towState.arrow = null; }
   if (success && towState.npc) {
-    towState.npc.rescued = true;
-    towState.npc.helpSprite.visible = false;
-    // 随机驶离方向
-    towState.npc.group.rotation.y = Math.random() * Math.PI * 2;
-    // 玩家车顶弹金币
-    spawnFlyCoin(car.pos.x, car.pos.y + 3, car.pos.z);
+    const npc = towState.npc;
+    npc.rescued = true;
+    npc.helpSprite.visible = false;
+
+    // 初始朝向玩家车
+    const rdx = car.pos.x - npc.wx, rdz = car.pos.z - npc.wz;
+    npc.group.rotation.y = Math.atan2(rdx, rdz);
+    npc.group.rotation.x = 0; npc.group.rotation.z = 0;
+
+    // 行驶状态
+    npc._drivePhase = 'toward';  // 'toward' | 'away'
+    npc._followDist = 0;
+    npc._npcSpeed = 5;
+
+    // "Thank you, bro!" 气泡 sprite
+    const tCanvas = document.createElement('canvas');
+    tCanvas.width = 256; tCanvas.height = 64;
+    const tc = tCanvas.getContext('2d');
+    tc.fillStyle = 'rgba(255,230,80,0.95)';
+    tc.beginPath();
+    // roundRect polyfill
+    { const _x=4,_y=4,_w=248,_h=44,_r=10; tc.moveTo(_x+_r,_y); tc.lineTo(_x+_w-_r,_y); tc.quadraticCurveTo(_x+_w,_y,_x+_w,_y+_r); tc.lineTo(_x+_w,_y+_h-_r); tc.quadraticCurveTo(_x+_w,_y+_h,_x+_w-_r,_y+_h); tc.lineTo(_x+_r,_y+_h); tc.quadraticCurveTo(_x,_y+_h,_x,_y+_h-_r); tc.lineTo(_x,_y+_r); tc.quadraticCurveTo(_x,_y,_x+_r,_y); }
+    tc.fill();
+    tc.beginPath();
+    tc.moveTo(118, 48); tc.lineTo(128, 62); tc.lineTo(138, 48); tc.fill();
+    tc.fillStyle = '#222';
+    tc.font = 'bold 18px sans-serif'; tc.textAlign = 'center';
+    tc.fillText('Thank you, bro! 🙌', 128, 32);
+    const tTex = new THREE.CanvasTexture(tCanvas);
+    const tMat = new THREE.SpriteMaterial({ map: tTex, transparent: true, depthTest: false });
+    const tSprite = new THREE.Sprite(tMat);
+    tSprite.scale.set(5, 1.25, 1);
+    tSprite.position.set(0, 5, 0);
+    npc.group.add(tSprite);
+    npc._thankSprite = tSprite;
+
+    // 玩家车顶弹金币（每次救援奖励10金币）
+    spawnFlyCoin(car.pos.x, car.pos.y + 3, car.pos.z, 10);
   }
   towState.active = false;
   towState.npc = null;
   towState.counting = false;
+  towState.isValid = false;
   document.getElementById('rescueMsg').style.display = 'none';
 }
 
@@ -5001,7 +4840,9 @@ function _makeBubbleSprite(text, width) {
   const ctx = cvs.getContext('2d');
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.beginPath();
-  ctx.roundRect(4, 4, w - 8, 42, 10);
+  // roundRect polyfill
+  { const _x=4,_y=4,_w=w-8,_h=42,_r=10; ctx.moveTo(_x+_r,_y); ctx.lineTo(_x+_w-_r,_y); ctx.quadraticCurveTo(_x+_w,_y,_x+_w,_y+_r); ctx.lineTo(_x+_w,_y+_h-_r); ctx.quadraticCurveTo(_x+_w,_y+_h,_x+_w-_r,_y+_h); ctx.lineTo(_x+_r,_y+_h); ctx.quadraticCurveTo(_x,_y+_h,_x,_y+_h-_r); ctx.lineTo(_x,_y+_r); ctx.quadraticCurveTo(_x,_y,_x+_r,_y); }
+  
   ctx.fill();
   ctx.beginPath();
   ctx.moveTo(w/2 - 10, 46); ctx.lineTo(w/2, 60); ctx.lineTo(w/2 + 10, 46);
@@ -5043,20 +4884,134 @@ function updateStuckNPCs(dt) {
 
     if (npc.rescued) {
       npc._removeTimer += dt;
-      const driveDir = npc.group.rotation.y;
-      npc.group.position.x += Math.sin(driveDir) * 5 * dt;
-      npc.group.position.z += Math.cos(driveDir) * 5 * dt;
-      npc.group.position.y = getTerrainHeight(npc.group.position.x, npc.group.position.z);
-      npc.group.rotation.x *= 0.95; npc.group.rotation.z *= 0.95;
-      if (npc._removeTimer > 5) { disposeObject(npc.group); stuckNPCs.splice(i, 1); }
+      const npcX = npc.group.position.x, npcZ = npc.group.position.z;
+      const headY = npc.group.rotation.y;
+      const spd = npc._npcSpeed || 5;
+
+      // ---- 行驶阶段 ----
+      if (npc._drivePhase === 'toward') {
+        // 转向玩家
+        const tdx = car.pos.x - npcX, tdz = car.pos.z - npcZ;
+        const targetH = Math.atan2(tdx, tdz);
+        let dh = targetH - headY;
+        while (dh > Math.PI) dh -= Math.PI * 2;
+        while (dh < -Math.PI) dh += Math.PI * 2;
+        npc.group.rotation.y += dh * Math.min(1, 3 * dt);
+        // 前进
+        npc.group.position.x += Math.sin(npc.group.rotation.y) * spd * dt;
+        npc.group.position.z += Math.cos(npc.group.rotation.y) * spd * dt;
+        npc._followDist += spd * dt;
+        // 切换条件：到达玩家附近 或 玩家在前进时跟了5m
+        const distToPlayer = Math.sqrt(tdx * tdx + tdz * tdz);
+        const playerMoving = Math.abs(car.speed) > 0.5;
+        if (distToPlayer < 4.5 || (playerMoving && npc._followDist > 5)) {
+          npc._drivePhase = 'away';
+          npc.group.rotation.y = Math.random() * Math.PI * 2;
+          // 感谢气泡 3秒后淡出
+          if (npc._thankSprite) {
+            npc._thankFadeTimer = 3.0;
+          }
+        }
+      } else {
+        // 随机方向驶离
+        npc.group.position.x += Math.sin(npc.group.rotation.y) * spd * dt;
+        npc.group.position.z += Math.cos(npc.group.rotation.y) * spd * dt;
+      }
+
+      // ---- 感谢气泡淡出 ----
+      if (npc._thankSprite && npc._thankFadeTimer !== undefined) {
+        npc._thankFadeTimer -= dt;
+        npc._thankSprite.material.opacity = Math.max(0, npc._thankFadeTimer / 1.5);
+        if (npc._thankFadeTimer <= 0) {
+          npc.group.remove(npc._thankSprite);
+          npc._thankSprite.material.dispose();
+          npc._thankSprite = null;
+        }
+      }
+
+      // ---- 悬架：前后采样地形计算 pitch + smoothY ----
+      const fwdX2 = Math.sin(npc.group.rotation.y), fwdZ2 = Math.cos(npc.group.rotation.y);
+      const gF = getTerrainHeight(npc.group.position.x + fwdX2 * 1.3, npc.group.position.z + fwdZ2 * 1.3);
+      const gR = getTerrainHeight(npc.group.position.x - fwdX2 * 1.3, npc.group.position.z - fwdZ2 * 1.3);
+      const targetH2 = (gF + gR) / 2;
+      npc._npcSmoothY += (targetH2 - npc._npcSmoothY) * Math.min(1, 8 * dt);
+      npc.group.position.y = npc._npcSmoothY;
+      const targetPitch = Math.atan2(gF - gR, 2.6);
+      npc._npcSmoothPitch += (-targetPitch - npc._npcSmoothPitch) * Math.min(1, 6 * dt);
+      npc.group.rotation.x = npc._npcSmoothPitch;
+      npc.group.rotation.z *= 0.92; // 侧倾归零
+
+      // ---- 轮子转动 ----
+      npc._spinAngle += spd / 0.4 * dt;
+      if (npc._wheels) {
+        for (const w of npc._wheels) w.rotation.x = npc._spinAngle;
+      }
+
+      if (npc._removeTimer > 10) { disposeObject(npc.group); stuckNPCs.splice(i, 1); }
       continue;
+    }
+
+    // NPC 碰撞速度积分（陷车阻力大，快速衰减）
+    if (npc._vx !== undefined) {
+      const npcFriction = Math.pow(0.05, dt); // 强阻力：约0.2秒停下
+      npc._vx *= npcFriction;
+      npc._vz *= npcFriction;
+      npc.wx += npc._vx * dt;
+      npc.wz += npc._vz * dt;
+      npc.group.position.x = npc.wx;
+      npc.group.position.z = npc.wz;
     }
 
     const dx = car.pos.x - npc.wx, dz = car.pos.z - npc.wz;
     const dist = Math.sqrt(dx * dx + dz * dz);
     npc.helpSprite.visible = dist < 25;
     if (dist < nearestDist) { nearestDist = dist; nearestNPC = npc; }
-    if (dist > 400 && !npc._isFixedRescue) { disposeObject(npc.group); stuckNPCs.splice(i, 1); }
+
+    // 救援区域视觉：被救后隐藏，接近时脉冲高亮
+    if (npc._rescueZone) {
+      if (npc.rescued) {
+        npc._rescueZone.visible = false;
+      } else {
+        npc._rescueZone.visible = dist < 30;
+        const inZone = dist < 8;
+        const pulse = inZone ? 0.35 + 0.15 * Math.sin(gameTime * 4) : 0.25;
+        npc._rescueZone.material.opacity = pulse;
+        npc._rescueZone.material.color.setHex(inZone ? 0x66ddff : 0x44aaff);
+      }
+    }
+    if (dist > 400 && !npc._isFixedRescue) { disposeObject(npc.group); stuckNPCs.splice(i, 1); continue; }
+
+    // ---- NPC 碰撞：等质量弹性碰撞（不触发救援）----
+    const NPC_COLLIDE_R = 3.2;
+    if (dist < NPC_COLLIDE_R && dist > 0.01) {
+      const cn = 1 / dist;
+      const nx = dx * cn, nz = dz * cn; // 碰撞法线（NPC → 玩家）
+      const overlap = NPC_COLLIDE_R - dist;
+      // 位置分离：各承担一半
+      car.pos.x += nx * overlap * 0.5;
+      car.pos.z += nz * overlap * 0.5;
+      npc.wx   -= nx * overlap * 0.5;
+      npc.wz   -= nz * overlap * 0.5;
+      npc.group.position.x = npc.wx;
+      npc.group.position.z = npc.wz;
+      // 各自速度矢量
+      const cvx = Math.sin(car.velAngle) * car.speed;
+      const cvz = Math.cos(car.velAngle) * car.speed;
+      const nvx = npc._vx, nvz = npc._vz;
+      // 相对速度在法线方向的分量（>0 = 两者靠近）
+      const vRel = (cvx - nvx) * nx + (cvz - nvz) * nz;
+      if (vRel > 0) {
+        // 等质量弹性碰撞 impulse = vRel（每方向各传递一半）
+        const j = vRel * 0.85; // 0.85 = 略有能量损耗
+        // 玩家速度矢量
+        const newCvx = cvx - j * nx, newCvz = cvz - j * nz;
+        car.speed = Math.sqrt(newCvx * newCvx + newCvz * newCvz) * Math.sign(car.speed || 1);
+        if (Math.abs(car.speed) > 0.1) car.velAngle = Math.atan2(newCvx, newCvz);
+        // NPC 获得对应冲量
+        npc._vx += j * nx;
+        npc._vz += j * nz;
+      }
+    }
   }
 
   // 玩家气泡位置
@@ -5120,15 +5075,23 @@ function updateStuckNPCs(dt) {
     // 更新绳子几何体
     updateTowRopeGeometry(towState.rope, rearX, rearY, rearZ, anchorX, anchorY, anchorZ);
 
-    // 箭头闪烁
-    if (towState.arrow) {
-      towState.arrow.material.opacity = 0.4 + 0.3 * Math.sin(gameTime * 4);
-    }
-
-    // ---- 物理拖拽：绳子拉伸时对NPC施力 ----
+    // ---- 物理拖拽：判定条件（提前计算，箭头/绳子/圈颜色都依赖它）----
     const isMoving = car.throttle > 0 && Math.abs(car.speed) > 0.5;
     const isTensioned = ropeStretch > 0.2; // 绳子有张力
     const isValidTow = isTensioned && isPullingCorrectDir && isMoving;
+    towState.isValid = isValidTow;
+
+    // 箭头：正确方向绿色闪烁，否则黄色
+    if (towState.arrow) {
+      if (isValidTow) {
+        const gf = 0.6 + 0.4 * Math.sin(gameTime * 8);
+        towState.arrow.material.color.setRGB(0, gf, 0.15 * gf);
+        towState.arrow.material.opacity = 0.8 + 0.2 * Math.sin(gameTime * 8);
+      } else {
+        towState.arrow.material.color.setHex(0xffcc00);
+        towState.arrow.material.opacity = 0.75 + 0.25 * Math.sin(gameTime * 4);
+      }
+    }
 
     // 绳子颜色反馈
     if (towState.rope && towState.rope.material) {
@@ -5139,6 +5102,20 @@ function updateStuckNPCs(dt) {
         towState.rope.material.color.setHex(0xd4a040); // 有张力但方向不对：橙色
       } else {
         towState.rope.material.color.setRGB(0.5, 0.5, 0.4); // 松弛：暗灰
+      }
+    }
+
+    // 救援区域圈：正确方向绿色闪烁
+    if (npc._rescueZone && npc._rescueZone.visible) {
+      if (isValidTow) {
+        const gFlash = 0.3 + 0.2 * Math.sin(gameTime * 8);
+        npc._rescueZone.material.color.setRGB(0, 1, 0.3);
+        npc._rescueZone.material.opacity = gFlash;
+        // 内填充也变绿
+        if (npc._rescueZone.children[0]) {
+          npc._rescueZone.children[0].material.color.setRGB(0, 1, 0.3);
+          npc._rescueZone.children[0].material.opacity = gFlash * 0.4;
+        }
       }
     }
 
@@ -5255,13 +5232,32 @@ let cameraTemplate = null;
     const raw = gltf.scene;
     const bb = new THREE.Box3().setFromObject(raw);
     const sz = bb.getSize(new THREE.Vector3());
-    const sc = 1.2 / Math.max(sz.x, sz.y, sz.z, 0.001);
+    const sc = 2.4 / Math.max(sz.x, sz.y, sz.z, 0.001); // 放大2倍（原1.2 × 2）
     raw.scale.multiplyScalar(sc);
     const bb2 = new THREE.Box3().setFromObject(raw);
     const c2 = bb2.getCenter(new THREE.Vector3());
     raw.position.sub(c2);
     raw.position.y -= bb2.min.y;
-    raw.traverse(c => { if (c.isMesh) c.castShadow = true; });
+    raw.traverse(c => {
+      if (c.isMesh) {
+        c.castShadow = true;
+        // 修复透明问题：确保所有材质不透明且可见
+        if (c.material) {
+          c.material = c.material.clone();
+          c.material.transparent = false;
+          c.material.opacity = 1.0;
+          c.material.depthWrite = true;
+          c.material.side = THREE.FrontSide;
+          // 如果颜色太暗（接近黑色），稍微提亮
+          if (c.material.color) {
+            const col = c.material.color;
+            if (col.r + col.g + col.b < 0.15) {
+              col.multiplyScalar(3);
+            }
+          }
+        }
+      }
+    });
     cameraTemplate = raw;
     // 初始化所有打卡点
     initCheckpoints();
@@ -5343,8 +5339,20 @@ function spawnFixedRescueNPC(cp) {
   helpSprite.visible = false;
   group.add(helpSprite);
 
+  // 救援有效区域 — 半透明圆形标识
+  const rZoneGeo = new THREE.RingGeometry(7.5, 8.0, 48);
+  rZoneGeo.rotateX(-Math.PI / 2);
+  const rZoneMat = new THREE.MeshBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false });
+  const rZone = new THREE.Mesh(rZoneGeo, rZoneMat);
+  const rZoneFillGeo = new THREE.CircleGeometry(7.5, 48);
+  rZoneFillGeo.rotateX(-Math.PI / 2);
+  const rZoneFillMat = new THREE.MeshBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false });
+  rZone.add(new THREE.Mesh(rZoneFillGeo, rZoneFillMat));
+  rZone.position.y = 1.5; // 车身一半高度，避免地面/冰面穿模
+  group.add(rZone);
+
   // 注册为stuckNPC（复用现有救援系统）
-  const npcData = { group, wx: nx, wz: nz, biome, rescued: false, helpSprite, _removeTimer: 0, _isFixedRescue: true, _checkpointId: cp.id };
+  const npcData = { group, wx: nx, wz: nz, biome, rescued: false, helpSprite, _removeTimer: 0, _isFixedRescue: true, _checkpointId: cp.id, _rescueZone: rZone };
   stuckNPCs.push(npcData);
   cp.rescueNPC = npcData;
 }
@@ -5486,31 +5494,49 @@ function unlockCheckpoint(cp) {
   const targetRect = slotEl ? slotEl.getBoundingClientRect() : { left: 40, top: window.innerHeight - 100, width: 56, height: 42 };
   const ex = targetRect.left + targetRect.width / 2;
   const ey = targetRect.top + targetRect.height / 2;
-  const cpX = (sx + ex) / 2 + (Math.random() - 0.5) * 80;
-  const cpY = Math.min(sy, ey) - 60;
-  const t0 = performance.now(), dur = 650;
+  const t0 = performance.now();
+  const RISE_DUR = 230, FLY_DUR = 380; // ms：上抬阶段 + 加速飞行阶段
+  const riseEndY = sy - 95; // 上抬高度
 
   function flyStep(now) {
-    let t = Math.min(1, (now - t0) / dur);
-    const u = 1 - t;
-    const x = u*u*sx + 2*u*t*cpX + t*t*ex;
-    const y = u*u*sy + 2*u*t*cpY + t*t*ey;
-    const s = 1 + 0.3 * Math.sin(t * Math.PI);
-    flyEl.style.left = (x - 16) + 'px';
-    flyEl.style.top = (y - 16) + 'px';
-    flyEl.style.transform = `scale(${s})`;
-    flyEl.style.opacity = String(t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15);
-    if (t < 1) { requestAnimationFrame(flyStep); return; }
-    flyEl.remove();
-    // 缩放弹跳动画：1 → 1.5 → 0.9 → 1
-    if (slotEl) {
-      slotEl.style.opacity = '1';
-      slotEl.style.transition = 'transform 0.15s ease-out';
-      slotEl.style.transform = 'scale(1.5)';
-      setTimeout(() => { slotEl.style.transform = 'scale(0.9)'; }, 150);
-      setTimeout(() => { slotEl.style.transform = 'scale(1)'; }, 300);
-      setTimeout(() => { slotEl.style.transition = ''; slotEl.style.transform = ''; }, 500);
+    const elapsed = now - t0;
+
+    if (elapsed < RISE_DUR) {
+      // Phase 1：向上弹起，ease-out，图标放大
+      const t = elapsed / RISE_DUR;
+      const eased = 1 - (1 - t) * (1 - t);
+      const cy = sy + (riseEndY - sy) * eased;
+      const s = 1 + 0.7 * Math.sin(t * Math.PI);
+      flyEl.style.left = (sx - 18) + 'px';
+      flyEl.style.top = (cy - 18) + 'px';
+      flyEl.style.transform = `scale(${s})`;
+      flyEl.style.opacity = '1';
+    } else {
+      // Phase 2：ease-in 加速飞向目标槽位
+      const t = Math.min(1, (elapsed - RISE_DUR) / FLY_DUR);
+      const eased = t * t; // 加速
+      const cx = sx + (ex - sx) * eased;
+      const cy = riseEndY + (ey - riseEndY) * eased;
+      const s = 1.6 - 0.6 * t; // 从大到正常
+      flyEl.style.left = (cx - 18) + 'px';
+      flyEl.style.top = (cy - 18) + 'px';
+      flyEl.style.transform = `scale(${s})`;
+      flyEl.style.opacity = String(t < 0.75 ? 1 : 1 - (t - 0.75) / 0.25);
+      if (t >= 1) {
+        flyEl.remove();
+        // 缩放弹跳动画：1 → 1.5 → 0.9 → 1
+        if (slotEl) {
+          slotEl.style.opacity = '1';
+          slotEl.style.transition = 'transform 0.15s ease-out';
+          slotEl.style.transform = 'scale(1.5)';
+          setTimeout(() => { slotEl.style.transform = 'scale(0.9)'; }, 150);
+          setTimeout(() => { slotEl.style.transform = 'scale(1)'; }, 300);
+          setTimeout(() => { slotEl.style.transition = ''; slotEl.style.transform = ''; }, 500);
+        }
+        return;
+      }
     }
+    requestAnimationFrame(flyStep);
   }
   requestAnimationFrame(flyStep);
 
@@ -5526,29 +5552,73 @@ function unlockCheckpoint(cp) {
 const clock = new THREE.Clock();
 const _sprayPos = new THREE.Vector3();
 let _calRenderTimer = 0;
-let _biomeUpdateTimer = 0;
+
+
+// ---- FPS 计量 ----
+let _fpsFrames = 0, _fpsLastTime = performance.now(), _fpsDisplay = 0;
+let _fpsMin = 999, _fpsMax = 0, _frameTimes = [];
+const _fpsPanelEl = document.getElementById('fpsPanel');
 
 function animate() {
   _animFrameId = requestAnimationFrame(animate);
+
+  // FPS 统计
+  const _fpsNow = performance.now();
+  const _frameMs = _fpsNow - _fpsLastTime;
+  _frameTimes.push(_frameMs);
+  if (_frameTimes.length > 120) _frameTimes.shift();
+  _fpsLastTime = _fpsNow;
+  _fpsFrames++;
+  // 每0.5秒刷新显示
+  if (_fpsFrames % 30 === 0) {
+    const avg = _frameTimes.reduce((a,b) => a+b, 0) / _frameTimes.length;
+    const maxMs = Math.max(..._frameTimes.slice(-60));
+    const minMs = Math.min(..._frameTimes.slice(-60));
+    _fpsDisplay = Math.round(1000 / avg);
+    if (_fpsPanelEl) {
+      try {
+        const ri = renderer.info;
+        let perfLine = '';
+        if (window._pfAccum && window._pfCount > 10) {
+          const sorted = Object.entries(window._pfAccum)
+            .map(([k,v]) => [k, v / window._pfCount])
+            .sort((a,b) => b[1] - a[1])
+            .slice(0, 5);
+          perfLine = '\n' + sorted.map(([k,v]) => `${k}:${v.toFixed(1)}`).join(' ');
+        }
+        _fpsPanelEl.textContent =
+          `FPS: ${_fpsDisplay}  avg:${avg.toFixed(1)}ms  worst:${maxMs.toFixed(1)}ms\n` +
+          `draw:${ri.render.calls}  tris:${ri.render.triangles}  tex:${ri.memory.textures}  geo:${ri.memory.geometries}` +
+          perfLine;
+      } catch(e) {}
+    }
+  }
+
   const rawDt = clock.getDelta();
   const dt = rawDt;
   gameTime += dt;
 
-  updateWeatherCalendar(dt);
+  try { // 全局错误捕获
 
-  updateDayNight(dt);
-  updateRain(dt);
-  if (!gameOver) updatePhysics(dt);
-  updateFuel(dt);
-  updateDynamicTerrain();
-  updateWater(dt);
-  updateDistanceCulling();
-  updateTruck(dt);
-  updateCarLights();
-  updateHUD(dt);
-  updateChaseCamera(dt);
+  // ---- 逐函数计时（每60帧打印一次）----
+  const _pf = {};
+  let _t0;
+  function _ps(n) { _t0 = performance.now(); }
+  function _pe(n) { _pf[n] = (_pf[n] || 0) + performance.now() - _t0; }
 
-  // 车轮喷溅粒子（后驱: BL/BR only; 4L四驱: all 4 wheels）
+  _ps(); updateDayNight(dt); _pe('dayNight');
+  _ps(); updateBiomeSkyTint(); _pe('biomeSky');
+  _ps(); if (!gameOver) updatePhysics(dt); _pe('physics');
+  _ps(); updateFuel(dt); _pe('fuel');
+  _ps(); updateDynamicTerrain(); _pe('terrain');
+  _ps(); updateWater(dt); _pe('water');
+  _ps(); updateDistanceCulling(); _pe('culling');
+  _ps(); updateTruck(dt); _pe('truck');
+  _ps(); updateCarLights(); _pe('lights');
+  _ps(); updateHUD(dt); _pe('hud');
+  _ps(); updateChaseCamera(dt); _pe('camera');
+
+  _ps();
   if (modelReady && wheelBL && wheelBR) {
     wheelBL.getWorldPosition(_sprayPos);
     emitSpray('BL', _sprayPos.x, _sprayPos.y, _sprayPos.z, car.speed, car.heading);
@@ -5561,20 +5631,63 @@ function animate() {
       emitSpray('FR', _sprayPos.x, _sprayPos.y, _sprayPos.z, car.speed, car.heading);
     }
   }
-  updateWheelSprays(dt);
-  updateTreasureBoxes(dt);
-  updateStuckNPCs(dt);
-  updateFlyCoins(dt);
-  updateCheckpoints(dt);
+  updateWheelSprays(dt); _pe('sprays');
 
-  // 日历UI + 小地图（每0.5秒更新一次DOM，不用每帧）
+  _ps(); updateTreasureBoxes(dt); _pe('treasure');
+  _ps(); updateStuckNPCs(dt); _pe('npcs');
+  _ps(); updateFlyCoins(dt); _pe('coins');
+  _ps(); updateCheckpoints(dt); _pe('checkpoints');
+
   _calRenderTimer += dt;
   if (_calRenderTimer > 0.5) {
     _calRenderTimer = 0;
-    updateMinimap();
+    _ps(); updateMinimap(); _pe('minimap');
   }
 
-  renderer.render(scene, camera);
+  // 渲染前检查scene是否有异常对象
+  if (window._debugRender && _fpsFrames % 60 === 0) {
+    let meshCount = 0, badCount = 0;
+    scene.traverse(c => {
+      if (c.isMesh) {
+        meshCount++;
+        const p = c.geometry?.getAttribute('position');
+        if (p) {
+          for (let _di = 0; _di < Math.min(p.count, 10); _di++) {
+            if (!isFinite(p.getX(_di) + p.getY(_di) + p.getZ(_di))) { badCount++; break; }
+          }
+        }
+      }
+    });
+    console.log('[DEBUG] meshes:', meshCount, 'badGeo:', badCount);
+  }
+  const _renderStart = performance.now();
+  _ps(); renderer.render(scene, camera); _pe('render');
+  const _renderTime = performance.now() - _renderStart;
+  if (_renderTime > 200) {
+    console.warn('[SLOW RENDER]', _renderTime.toFixed(0), 'ms - frame', _fpsFrames,
+      'towActive:', towState.active, 'meshes:', renderer.info.render.calls);
+  }
+
+  // 累积并显示
+  if (!window._pfAccum) window._pfAccum = {};
+  if (!window._pfCount) window._pfCount = 0;
+  for (const k in _pf) { window._pfAccum[k] = (window._pfAccum[k] || 0) + _pf[k]; }
+  window._pfCount++;
+  if (window._pfCount >= 60) {
+    const lines = Object.entries(window._pfAccum)
+      .map(([k,v]) => [k, (v / window._pfCount).toFixed(1)])
+      .sort((a,b) => b[1] - a[1])
+      .map(([k,v]) => `${k}:${v}ms`).join(' | ');
+    console.log('[PERF]', lines);
+    window._pfAccum = {}; window._pfCount = 0;
+  }
+
+  } catch(e) { // 全局错误捕获
+    if (!window._lastAnimErr || window._lastAnimErr !== e.message) {
+      window._lastAnimErr = e.message;
+      console.error('[ANIMATE ERROR]', e.message, '\n', e.stack);
+    }
+  }
 }
 animate();
 
