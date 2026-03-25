@@ -101,7 +101,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
 </div>
 <div id="flipMsg">ROLLED OVER!<br><span style="font-size:15px;color:#666;font-weight:400;">Press <kbd style="padding:2px 8px;background:#f0f0f0;border:1px solid #ddd;border-radius:3px;font-family:monospace;">R</kbd> to reset</span></div>
 <div id="lightControls">
-  <button id="btnLock" onclick="toggleDiffLock()" title="差速锁" style="background:#222;border:2px solid #444;padding:4px 6px;border-radius:8px;cursor:pointer;">
+  <button id="btnLock" onclick="toggleDiffLock()" title="差速锁" style="background:#222;border:2px solid #444;padding:4px 6px;border-radius:8px;cursor:pointer;outline:none;">
     <svg width="36" height="40" viewBox="0 0 36 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <!-- 四个轮胎 -->
       <rect x="1" y="2" width="8" height="14" rx="3" fill="#666" id="lockWFL"/>
@@ -129,6 +129,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
   <div class="go-hint">按 <kbd style="padding:2px 8px;background:#555;border:1px solid #777;border-radius:3px;color:#fff;">R</kbd> 重置游戏</div></div>
 <div id="invTooltip"></div>
 <div id="rescueMsg"></div>
+<div id="diffLockTip" style="display:none;position:fixed;top:28%;left:50%;transform:translateX(-50%);
+  font-family:'Noto Sans SC',sans-serif;font-size:16px;color:#fff;background:rgba(255,136,0,0.85);
+  padding:10px 24px;border-radius:10px;pointer-events:none;z-index:50;white-space:nowrap;
+  transition:opacity 0.4s;backdrop-filter:blur(6px);"></div>
 <div id="checkpointMsg"></div>
 <div id="achieveWrap"><div id="achieveTitle"><span class="at-icon">📷</span> 打卡成就</div><div id="achieveBar"></div></div>
 <div id="videoOverlay" onclick="closeVideo(event)"><div class="vo-close" onclick="closeVideo(event)">✕</div><video id="videoPlayer" controls></video></div>
@@ -182,6 +186,340 @@ function disposeObject(obj) {
   });
 }
 
+// ============================================================
+// AUDIO SYSTEM — 全程序化生成（Web Audio API，零外部文件）
+// ============================================================
+let audioCtx = null;
+let audioResumed = false;
+const audio = {
+  // 引擎（4层Oscillator叠加 = 更浑厚）
+  engineOsc1: null, engineOsc2: null, engineOsc3: null, engineOsc4: null,
+  engineGain: null, engineFilter: null,
+  // 冰面漂移摩擦声
+  iceSkidGain: null,
+  // 环境音：白噪声源 + 各biome GainNode
+  noiseSource: null, noiseBuffer: null,
+  jungleBirdGain: null, jungleLeafGain: null,
+  snowWindGain: null,
+  seaWaveGain: null, _seaLfoPhase: 0,
+  // 主音量
+  masterGain: null,
+};
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  audio.masterGain = audioCtx.createGain();
+  audio.masterGain.gain.value = 0.5;
+  audio.masterGain.connect(audioCtx.destination);
+
+  // ---- 引擎声：4层Oscillator + 低通滤波器（浑厚感）----
+  audio.engineGain = audioCtx.createGain();
+  audio.engineGain.gain.value = 0;
+  audio.engineFilter = audioCtx.createBiquadFilter();
+  audio.engineFilter.type = 'lowpass';
+  audio.engineFilter.frequency.value = 400;
+  audio.engineFilter.Q.value = 3;
+  audio.engineGain.connect(audio.engineFilter);
+  audio.engineFilter.connect(audio.masterGain);
+
+  // 层1：超低频基础（方波 = 厚重的低频脉冲）
+  audio.engineOsc1 = audioCtx.createOscillator();
+  audio.engineOsc1.type = 'square';
+  audio.engineOsc1.frequency.value = 30;
+  const eng1Gain = audioCtx.createGain(); eng1Gain.gain.value = 0.18;
+  audio.engineOsc1.connect(eng1Gain); eng1Gain.connect(audio.engineGain);
+  audio.engineOsc1.start();
+  audio._eng1Gain = eng1Gain;
+
+  // 层2：低频锯齿波（引擎主体音色）
+  audio.engineOsc2 = audioCtx.createOscillator();
+  audio.engineOsc2.type = 'sawtooth';
+  audio.engineOsc2.frequency.value = 60;
+  const eng2Gain = audioCtx.createGain(); eng2Gain.gain.value = 0.22;
+  audio.engineOsc2.connect(eng2Gain); eng2Gain.connect(audio.engineGain);
+  audio.engineOsc2.start();
+  audio._eng2Gain = eng2Gain;
+
+  // 层3：中频三角波（温暖的共鸣泛音）
+  audio.engineOsc3 = audioCtx.createOscillator();
+  audio.engineOsc3.type = 'triangle';
+  audio.engineOsc3.frequency.value = 90;
+  const eng3Gain = audioCtx.createGain(); eng3Gain.gain.value = 0.1;
+  audio.engineOsc3.connect(eng3Gain); eng3Gain.connect(audio.engineGain);
+  audio.engineOsc3.start();
+  audio._eng3Gain = eng3Gain;
+
+  // 层4：噪声层（模拟排气管的粗糙质感）
+  audio.engineOsc4 = audioCtx.createBufferSource();
+  const engNoiseBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+  const engNoiseData = engNoiseBuf.getChannelData(0);
+  for (let i = 0; i < engNoiseData.length; i++) engNoiseData[i] = Math.random() * 2 - 1;
+  audio.engineOsc4.buffer = engNoiseBuf; audio.engineOsc4.loop = true;
+  const engNoiseFilter = audioCtx.createBiquadFilter();
+  engNoiseFilter.type = 'bandpass'; engNoiseFilter.frequency.value = 120; engNoiseFilter.Q.value = 1.5;
+  const eng4Gain = audioCtx.createGain(); eng4Gain.gain.value = 0.08;
+  audio.engineOsc4.connect(engNoiseFilter); engNoiseFilter.connect(eng4Gain);
+  eng4Gain.connect(audio.engineGain);
+  audio.engineOsc4.start();
+  audio._eng4Gain = eng4Gain;
+  audio._engNoiseFilter = engNoiseFilter;
+
+  // ---- 漂移摩擦地面声（低频沙沙 + 中频摩擦，模拟轮胎刮地）----
+  audio.iceSkidGain = audioCtx.createGain();
+  audio.iceSkidGain.gain.value = 0;
+  audio.iceSkidGain.connect(audio.masterGain);
+  // 层A：低频摩擦（200-600Hz，沉闷的轮胎拖地声）
+  const skidLoSrc = audioCtx.createBufferSource();
+  skidLoSrc.buffer = engNoiseBuf; skidLoSrc.loop = true;
+  const skidLoFilter = audioCtx.createBiquadFilter();
+  skidLoFilter.type = 'bandpass'; skidLoFilter.frequency.value = 400; skidLoFilter.Q.value = 0.8;
+  const skidLoGain = audioCtx.createGain(); skidLoGain.gain.value = 0.7;
+  skidLoSrc.connect(skidLoFilter); skidLoFilter.connect(skidLoGain);
+  skidLoGain.connect(audio.iceSkidGain);
+  skidLoSrc.start();
+  // 层B：中频摩擦（800-2000Hz，沙沙的刮擦质感）
+  const skidMidSrc = audioCtx.createBufferSource();
+  skidMidSrc.buffer = engNoiseBuf; skidMidSrc.loop = true;
+  const skidMidFilter = audioCtx.createBiquadFilter();
+  skidMidFilter.type = 'bandpass'; skidMidFilter.frequency.value = 1200; skidMidFilter.Q.value = 1.2;
+  const skidMidGain = audioCtx.createGain(); skidMidGain.gain.value = 0.3;
+  skidMidSrc.connect(skidMidFilter); skidMidFilter.connect(skidMidGain);
+  skidMidGain.connect(audio.iceSkidGain);
+  skidMidSrc.start();
+
+  // ---- 白噪声Buffer（所有环境音的源头）----
+  const bufLen = audioCtx.sampleRate * 4; // 4秒循环
+  audio.noiseBuffer = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+  const data = audio.noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+
+  // ---- 雨林：鸟叫（带通滤波白噪声，随机触发）----
+  audio.jungleBirdGain = audioCtx.createGain();
+  audio.jungleBirdGain.gain.value = 0;
+  const birdFilter = audioCtx.createBiquadFilter();
+  birdFilter.type = 'bandpass'; birdFilter.frequency.value = 3500; birdFilter.Q.value = 8;
+  birdFilter.connect(audio.jungleBirdGain);
+  audio.jungleBirdGain.connect(audio.masterGain);
+  audio._birdFilter = birdFilter;
+  audio._birdTimer = 0;
+  audio._birdActive = false;
+
+  // 雨林叶子沙沙声已移除（太吵）
+
+  // ---- 雪地：风声（低通白噪声）----
+  audio.snowWindGain = audioCtx.createGain();
+  audio.snowWindGain.gain.value = 0;
+  const windFilter = audioCtx.createBiquadFilter();
+  windFilter.type = 'lowpass'; windFilter.frequency.value = 600; windFilter.Q.value = 1;
+  const windSrc = audioCtx.createBufferSource();
+  windSrc.buffer = audio.noiseBuffer; windSrc.loop = true;
+  windSrc.connect(windFilter); windFilter.connect(audio.snowWindGain);
+  audio.snowWindGain.connect(audio.masterGain);
+  windSrc.start();
+
+  // ---- 海浪声（低通白噪声 + LFO音量调制）----
+  audio.seaWaveGain = audioCtx.createGain();
+  audio.seaWaveGain.gain.value = 0;
+  const seaFilter = audioCtx.createBiquadFilter();
+  seaFilter.type = 'lowpass'; seaFilter.frequency.value = 800; seaFilter.Q.value = 0.8;
+  const seaSrc = audioCtx.createBufferSource();
+  seaSrc.buffer = audio.noiseBuffer; seaSrc.loop = true;
+  seaSrc.connect(seaFilter); seaFilter.connect(audio.seaWaveGain);
+  audio.seaWaveGain.connect(audio.masterGain);
+  seaSrc.start();
+}
+
+function resumeAudio() {
+  if (audioResumed) return;
+  if (!audioCtx) initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  audioResumed = true;
+}
+
+// ---- 一次性音效：宝箱获得（上行琶音 C-E-G-C'）----
+function playTreasureSound() {
+  if (!audioCtx || !audioResumed) return;
+  const notes = [523.25, 659.25, 783.99, 1046.50]; // C5-E5-G5-C6
+  const t = audioCtx.currentTime;
+  notes.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.15, t + i * 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.15);
+    osc.connect(g); g.connect(audio.masterGain);
+    osc.start(t + i * 0.08);
+    osc.stop(t + i * 0.08 + 0.2);
+  });
+}
+
+// ---- 一次性音效：打卡成就（更华丽的和弦琶音）----
+function playCheckpointSound() {
+  if (!audioCtx || !audioResumed) return;
+  const notes = [392, 493.88, 587.33, 783.99, 987.77]; // G4-B4-D5-G5-B5
+  const t = audioCtx.currentTime;
+  notes.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.2, t + i * 0.1);
+    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.4);
+    osc.connect(g); g.connect(audio.masterGain);
+    osc.start(t + i * 0.1);
+    osc.stop(t + i * 0.1 + 0.5);
+  });
+  // 持续和弦底音
+  const pad = audioCtx.createOscillator();
+  pad.type = 'sine'; pad.frequency.value = 196; // G3
+  const pg = audioCtx.createGain();
+  pg.gain.setValueAtTime(0.1, t);
+  pg.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+  pad.connect(pg); pg.connect(audio.masterGain);
+  pad.start(t); pad.stop(t + 1.1);
+}
+
+// ---- 车辆碰撞声（低频撞击 + 金属碎响）----
+function playCollisionSound(intensity) {
+  if (!audioCtx || !audioResumed) return;
+  const vol = Math.min(0.3, intensity * 0.04);
+  if (vol < 0.02) return;
+  const t = audioCtx.currentTime;
+  // 低频撞击：短促正弦波快速衰减
+  const boom = audioCtx.createOscillator();
+  boom.type = 'sine';
+  boom.frequency.setValueAtTime(120, t);
+  boom.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+  const bg = audioCtx.createGain();
+  bg.gain.setValueAtTime(vol, t);
+  bg.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  boom.connect(bg); bg.connect(audio.masterGain);
+  boom.start(t); boom.stop(t + 0.25);
+  // 金属碎响：带通噪声脉冲
+  const nSrc = audioCtx.createBufferSource();
+  nSrc.buffer = audio.noiseBuffer;
+  const nf = audioCtx.createBiquadFilter();
+  nf.type = 'bandpass'; nf.frequency.value = 1500 + Math.random() * 1000; nf.Q.value = 3;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(vol * 0.6, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  nSrc.connect(nf); nf.connect(ng); ng.connect(audio.masterGain);
+  nSrc.start(t); nSrc.stop(t + 0.15);
+}
+
+// ---- 绳子崩断声（弹簧弹断 + 甩鞭声）----
+function playRopeSnapSound() {
+  if (!audioCtx || !audioResumed) return;
+  const t = audioCtx.currentTime;
+  // 弹断：快速下行频率扫描
+  const snap = audioCtx.createOscillator();
+  snap.type = 'sawtooth';
+  snap.frequency.setValueAtTime(800, t);
+  snap.frequency.exponentialRampToValueAtTime(80, t + 0.08);
+  const sg = audioCtx.createGain();
+  sg.gain.setValueAtTime(0.2, t);
+  sg.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  snap.connect(sg); sg.connect(audio.masterGain);
+  snap.start(t); snap.stop(t + 0.15);
+  // 甩鞭尾声：高频噪声短脉冲
+  const whip = audioCtx.createBufferSource();
+  whip.buffer = audio.noiseBuffer;
+  const wf = audioCtx.createBiquadFilter();
+  wf.type = 'highpass'; wf.frequency.value = 3000;
+  const wg = audioCtx.createGain();
+  wg.gain.setValueAtTime(0.15, t + 0.03);
+  wg.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  whip.connect(wf); wf.connect(wg); wg.connect(audio.masterGain);
+  whip.start(t); whip.stop(t + 0.15);
+}
+
+// ---- 鸟叫触发（短促白噪声脉冲通过高Q带通滤波器）----
+function _triggerBirdCall() {
+  if (!audioCtx) return;
+  const src = audioCtx.createBufferSource();
+  src.buffer = audio.noiseBuffer;
+  // 随机频率模拟不同鸟
+  const freq = 2500 + Math.random() * 3000;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass'; filter.frequency.value = freq; filter.Q.value = 15 + Math.random() * 10;
+  const g = audioCtx.createGain();
+  const t = audioCtx.currentTime;
+  // 快速颤音：用 AM 调制
+  const dur = 0.15 + Math.random() * 0.4;
+  const chirps = 2 + Math.floor(Math.random() * 4);
+  for (let c = 0; c < chirps; c++) {
+    const ct = t + c * (dur / chirps);
+    g.gain.setValueAtTime(0.25, ct);
+    g.gain.exponentialRampToValueAtTime(0.001, ct + dur / chirps * 0.7);
+  }
+  src.connect(filter); filter.connect(g); g.connect(audio.jungleBirdGain);
+  src.start(t); src.stop(t + dur + 0.1);
+}
+
+// ---- 每帧更新音频（由animate调用）----
+function updateAudio(dt) {
+  if (!audioCtx || !audioResumed) return;
+
+  // ---- 引擎声（4层浑厚）----
+  const rpm = car.rpm || 800;
+  const throttleOn = car.throttle > 0 || car.reverse > 0;
+  const absSpeed = Math.abs(car.speed);
+  const rpmNorm = (rpm - 800) / (5000 - 800); // 0~1
+  // 层1超低频：30→55Hz | 层2主体：60→140Hz | 层3泛音：90→210Hz
+  audio.engineOsc1.frequency.value = 30 + rpmNorm * 25;
+  audio.engineOsc2.frequency.value = 60 + rpmNorm * 80;
+  audio.engineOsc3.frequency.value = 90 + rpmNorm * 120;
+  // 排气噪声层跟随RPM调带通频率
+  audio._engNoiseFilter.frequency.value = 80 + rpmNorm * 200;
+  // 总音量：怠速浑厚低沉，油门时更响更有力
+  const engineVol = throttleOn ? 0.15 + rpmNorm * 0.2 : 0.08 + rpmNorm * 0.1;
+  audio.engineGain.gain.value += (engineVol - audio.engineGain.gain.value) * Math.min(1, 8 * dt);
+  // 油门时超低频更重，松油门时衰减
+  audio._eng1Gain.gain.value += ((throttleOn ? 0.22 : 0.12) - audio._eng1Gain.gain.value) * Math.min(1, 5 * dt);
+  // 滤波器：油门打开高频，怠速闷
+  const filterFreq = throttleOn ? 500 + rpm * 0.12 : 250 + rpm * 0.04;
+  audio.engineFilter.frequency.value += (filterFreq - audio.engineFilter.frequency.value) * Math.min(1, 5 * dt);
+
+  // ---- 漂移摩擦地面声 ----
+  const onIceNow = isInIceLake(car.pos.x, car.pos.z);
+  // 侧滑量：车头方向和实际运动方向的偏差 × 速度
+  const slipAngle = Math.abs(Math.sin(car.heading - car.velAngle));
+  const sideSlip = onIceNow ? slipAngle * absSpeed : 0;
+  // 音量：侧滑越大越响，速度快时更明显
+  const skidVol = Math.min(0.25, sideSlip * 0.025);
+  audio.iceSkidGain.gain.value += (skidVol - audio.iceSkidGain.gain.value) * Math.min(1, 12 * dt);
+
+  // ---- 环境音（基于biome权重）----
+  const bw = getBiomeWeights(car.pos.x, car.pos.z);
+
+  // 雨林鸟叫（随机触发）
+  const jungleVol = Math.max(0, bw.jungle - 0.2) * 0.5;
+  audio.jungleBirdGain.gain.value += (jungleVol - audio.jungleBirdGain.gain.value) * Math.min(1, 2 * dt);
+  if (bw.jungle > 0.3) {
+    audio._birdTimer -= dt;
+    if (audio._birdTimer <= 0) {
+      _triggerBirdCall();
+      audio._birdTimer = 3 + Math.random() * 6; // 3-9秒间隔
+    }
+  }
+
+  // 雪地风声
+  const windVol = Math.max(0, bw.snow - 0.15) * 0.12 + absSpeed * 0.002;
+  audio.snowWindGain.gain.value += (windVol - audio.snowWindGain.gain.value) * Math.min(1, 2 * dt);
+
+  // 海浪声（基于到海边的距离 + LFO调制）
+  const distToCenter = Math.sqrt(car.pos.x * car.pos.x + car.pos.z * car.pos.z);
+  const desertBiome = bw.desert;
+  // 海边在desert biome的远处（120m+）
+  const seaProximity = desertBiome > 0.3 ? Math.max(0, 1 - Math.max(0, 130 - distToCenter) / 40) : 0;
+  audio._seaLfoPhase += dt * 0.15; // ~0.15Hz 海浪节奏
+  const seaLfo = 0.5 + 0.5 * Math.sin(audio._seaLfoPhase * Math.PI * 2);
+  const seaVol = seaProximity * 0.2 * seaLfo;
+  audio.seaWaveGain.gain.value += (seaVol - audio.seaWaveGain.gain.value) * Math.min(1, 3 * dt);
+}
+
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 500);
 camera.position.set(0, 18, 22);
 
@@ -208,6 +546,7 @@ const chaseCam = {
 
 // 鼠标拖拽控制视角
 canvas.addEventListener('mousedown', (e) => {
+  resumeAudio();
   if (e.button === 0 || e.button === 2) {  // 左键或右键
     chaseCam.dragging = true;
     chaseCam.lastMouseX = e.clientX;
@@ -1711,30 +2050,48 @@ const FLIP_ROLL_RANDOM = 1.5;        // 翻车时注入的随机roll额外角速
 // INPUT
 // ============================================================
 // ---- 差速锁切换 ----
+let _diffLockTipTimer = 0;
 function toggleDiffLock() {
-  if (Math.abs(car.speed) > 3) return;
+  // 必须停车才能切换
+  if (Math.abs(car.speed) > 0.5) {
+    // 行驶中弹出提示
+    const tip = document.getElementById('diffLockTip');
+    if (tip) {
+      tip.textContent = '差速锁可以提高越野能力，但需在停车时切换';
+      tip.style.display = 'block';
+      tip.style.opacity = '1';
+      clearTimeout(tip._hideTimer);
+      tip._hideTimer = setTimeout(() => { tip.style.opacity = '0'; setTimeout(() => tip.style.display = 'none', 400); }, 3000);
+    }
+    return;
+  }
   car.diffLock = !car.diffLock;
-  // 锁止时限制最高4档
-  if (car.diffLock && car.gear > 4) car.gear = 4;
+  // 锁止时限制最高3档
+  if (car.diffLock && car.gear > 3) car.gear = 3;
+  _updateDiffLockBtn();
+}
+function _updateDiffLockBtn() {
   const btn = document.getElementById('btnLock');
   if (!btn) return;
   const on = car.diffLock;
-  btn.style.background = on ? '#2a2500' : '#222';
-  btn.style.borderColor = on ? '#ffcc00' : '#444';
-  // SVG元素高亮
-  const hiColor = '#ffcc00', loColor = '#666', loStroke = '#555';
+  // 开启时整体橙色，关闭时暗色
+  const hiColor = '#ff8800', loColor = '#666', loStroke = '#555';
+  btn.style.background = on ? '#ff8800' : '#222';
+  btn.style.borderColor = on ? '#ffaa33' : '#444';
   const ids = ['lockWFL','lockWFR','lockWBL','lockWBR'];
-  ids.forEach(id => { const e = document.getElementById(id); if(e) e.setAttribute('fill', on ? hiColor : loColor); });
-  ['lockAxleF','lockAxleR','lockShaft'].forEach(id => { const e = document.getElementById(id); if(e) e.setAttribute('stroke', on ? hiColor : loStroke); });
+  ids.forEach(id => { const e = document.getElementById(id); if(e) e.setAttribute('fill', on ? '#fff' : loColor); });
+  ['lockAxleF','lockAxleR','lockShaft'].forEach(id => { const e = document.getElementById(id); if(e) e.setAttribute('stroke', on ? '#fff' : loStroke); });
   const body = document.getElementById('lockBody');
-  if(body) body.setAttribute('fill', on ? '#cc9900' : '#444');
+  if(body) body.setAttribute('fill', on ? '#fff' : '#444');
   const shackle = document.getElementById('lockShackle');
-  if(shackle) shackle.setAttribute('stroke', on ? hiColor : loStroke);
+  if(shackle) shackle.setAttribute('stroke', on ? '#fff' : loStroke);
 }
+window.toggleDiffLock = toggleDiffLock; // 暴露到全局，供HTML onclick调用
 
 const keys = {};
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
+  resumeAudio(); // 首次按键时激活音频（浏览器要求用户交互）
   // L 键切换差速锁
   if (e.code === 'KeyL') toggleDiffLock();
   // R 键重置（随时生效，不仅是翻车时）
@@ -1781,6 +2138,9 @@ document.addEventListener('keydown', e => {
   }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
+// 窗口失焦时清理所有按键状态（防止按键粘住）
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) for (const k in keys) keys[k] = false; });
 
 // ============================================================
 // PHYSICS
@@ -1832,7 +2192,7 @@ function updatePhysics(dt) {
       // 车还在倒着走，不切前进挡
     } else {
       if (car.gear === 0) car.gear = 1;
-      else if (car.gear < (car.diffLock ? 4 : 6) && kmh > GEAR_SPEED_UP[car.gear]) car.gear++;
+      else if (car.gear < (car.diffLock ? 3 : 6) && kmh > GEAR_SPEED_UP[car.gear]) car.gear++;
       else if (car.gear > 1 && kmh < GEAR_SPEED_DOWN[car.gear]) car.gear--;
     }
   }
@@ -1873,8 +2233,8 @@ function updatePhysics(dt) {
   car.rpm = Math.max(car.rpm, RPM_IDLE);
 
   // ---- Drive force ----
-  // 差速锁模式：分动箱低速挡额外减速比2.72，扭矩放大
-  const transferRatio = car.diffLock ? 2.72 : 1.0;
+  // 差速锁模式：不再放大扭矩，改为无视地面阻力
+  const transferRatio = 1.0;
   let driveF = 0;
   if (car.gear > 0 && car.throttle > 0 && currentRatio > 0) {
     const torque = ENGINE_TORQUE_PEAK * engineTorqueCurve(car.rpm) * car.throttle;
@@ -1901,7 +2261,7 @@ function updatePhysics(dt) {
 
   // ---- 自动刹车：不按W也不按S → 自动减速 ----
   const AUTO_BRAKE_FORCE = 10000;
-  if (car.throttle === 0 && car.reverse === 0 && !car.handbrake && Math.abs(car.speed) > 0.05) {
+  if (car.throttle === 0 && car.reverse === 0 && !car.handbrake && Math.abs(car.speed) > 0.01) {
     driveF += -Math.sign(car.speed) * AUTO_BRAKE_FORCE;
   }
 
@@ -1923,8 +2283,9 @@ function updatePhysics(dt) {
   // ---- 地形物理：biome抓地力 + 阻力 ----
   const surface = getSurfaceProperties(car.pos.x, car.pos.z);
   car._surfaceGrip = surface.grip;
-  const terrainDragF = surface.drag * Math.abs(car.speed) * MASS * 0.1;
-  // 差速锁模式：无视地形状态，所有路面按正常摩擦力处理（grip=1.0）
+  // 差速锁模式：大幅降低地面阻力（保留15%防止坡道自动滑行）
+  const rawTerrainDrag = surface.drag * Math.abs(car.speed) * MASS * 0.1;
+  const terrainDragF = car.diffLock ? rawTerrainDrag * 0.15 : rawTerrainDrag;
   const gripScale = car.diffLock ? 1.0 : surface.grip;
   const effectiveDriveF = driveF * gripScale;
 
@@ -1933,9 +2294,9 @@ function updatePhysics(dt) {
   const terrainDragDir = car.speed !== 0 ? -Math.sign(car.speed) * terrainDragF : 0;
   const netF = effectiveDriveF - dragF - rollResistF + slopeF + terrainDragDir;
 
-  // 差速锁：最高4档（约60km/h），不用硬限速，靠档位自然限制
-  const effectiveMaxSpeed = car.diffLock ? MAX_SPEED * 0.6 : MAX_SPEED;
-  const effectiveMaxReverse = car.diffLock ? MAX_REVERSE * 0.6 : MAX_REVERSE;
+  // 差速锁：最高3档，靠档位自然限制速度
+  const effectiveMaxSpeed = car.diffLock ? MAX_SPEED * 0.45 : MAX_SPEED;
+  const effectiveMaxReverse = car.diffLock ? MAX_REVERSE * 0.5 : MAX_REVERSE;
 
   car.prevSpeed = car.speed;
   car.speed += (netF / DRIVE_MASS) * dt;
@@ -2409,6 +2770,7 @@ loader.load(
     carLights.installed = true;
 
     modelReady = true;
+    initAudio(); // 预创建音频节点（用户交互时才resume）
     document.getElementById('loading').classList.add('hidden');
   } catch(e) { console.error(e); document.getElementById('loading').textContent = '初始化失败: ' + e.message; }
   },
@@ -3266,11 +3628,13 @@ const minimapPixels = minimapImgData.data;
 let _lastMinimapCX = Infinity, _lastMinimapCZ = Infinity;
 const MINIMAP_REDRAW_DIST = 15; // 车移动超过此距离重绘底图
 
-// 指路牌：沿路线每隔一段距离放一个
+// 指路牌：只放在biome交界处（InstancedMesh，3个drawcall替代36个）
 const signposts = [];
 {
-  const SIGN_INTERVAL = 80; // 每80m一个
+  const SIGN_INTERVAL = 80;
   let accDist = 0;
+  // 第一遍：收集候选位置
+  const candidates = [];
   for (let i = 1; i < TRAIL_POINTS.length; i++) {
     const dx = TRAIL_POINTS[i].x - TRAIL_POINTS[i-1].x;
     const dz = TRAIL_POINTS[i].z - TRAIL_POINTS[i-1].z;
@@ -3280,43 +3644,69 @@ const signposts = [];
       const p = TRAIL_POINTS[i];
       const pNext = TRAIL_POINTS[Math.min(i + 5, TRAIL_POINTS.length - 1)];
       const angle = Math.atan2(pNext.x - p.x, pNext.z - p.z);
-      signposts.push({ x: p.x + Math.cos(angle) * 3, z: p.z - Math.sin(angle) * 3, angle });
+      candidates.push({ x: p.x + Math.cos(angle) * 3, z: p.z - Math.sin(angle) * 3, angle });
+    }
+  }
+  // 第二遍：只保留biome交界处的路牌（主biome权重 < 0.75 说明在混合区）
+  for (const c of candidates) {
+    const bw = getBiomeWeights(c.x, c.z);
+    const maxW = Math.max(bw.snow, bw.desert, bw.jungle);
+    if (maxW < 0.75) { // 在两个biome交界的过渡带
+      signposts.push(c);
     }
   }
 
-  // 创建指路牌3D对象
-  for (const sp of signposts) {
-    const group = new THREE.Group();
-    // 杆子
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.8 });
+  const spCount = signposts.length;
+  if (spCount > 0) {
+    // 共享geometry
     const poleGeo = new THREE.CylinderGeometry(0.05, 0.06, 1.8, 6);
-    const pole = new THREE.Mesh(poleGeo, poleMat);
-    pole.position.y = 0.9;
-    group.add(pole);
-    // 指示板
     const boardGeo = new THREE.BoxGeometry(0.8, 0.35, 0.04);
-    const biome = getBiomeName(sp.x, sp.z);
-    const boardColor = biome === 'snow' ? 0x4477aa : biome === 'jungle' ? 0x337744 : 0xbb8833;
-    const boardMat = new THREE.MeshStandardMaterial({ color: boardColor, roughness: 0.5 });
-    const board = new THREE.Mesh(boardGeo, boardMat);
-    board.position.y = 1.65;
-    board.rotation.y = Math.PI / 12; // 微倾斜
-    group.add(board);
-    // 箭头（小三角形）
     const arrowGeo = new THREE.BufferGeometry();
     const arrowVerts = new Float32Array([0,0,0.025, 0.2,0.08,0.025, 0.2,-0.08,0.025]);
     arrowGeo.setAttribute('position', new THREE.BufferAttribute(arrowVerts, 3));
     arrowGeo.computeVertexNormals();
-    const arrow = new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
-    arrow.position.set(-0.15, 1.65, 0);
-    group.add(arrow);
 
-    const y = getTerrainHeight(sp.x, sp.z);
-    group.position.set(sp.x, y, sp.z);
-    group.rotation.y = sp.angle;
-    group.castShadow = true;
-    scene.add(group);
-    sp._group = group; // 保存引用供距离裁剪用
+    // 共享material
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.8 });
+    const boardMat = new THREE.MeshStandardMaterial({ color: 0x557755, roughness: 0.5 });
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+
+    // 3个InstancedMesh
+    const poleIM = new THREE.InstancedMesh(poleGeo, poleMat, spCount);
+    const boardIM = new THREE.InstancedMesh(boardGeo, boardMat, spCount);
+    const arrowIM = new THREE.InstancedMesh(arrowGeo, arrowMat, spCount);
+    poleIM.castShadow = false; poleIM.receiveShadow = false;
+    boardIM.castShadow = false; boardIM.receiveShadow = false;
+    arrowIM.castShadow = false; arrowIM.receiveShadow = false;
+
+    const _dm = new THREE.Matrix4();
+    const _pos = new THREE.Vector3();
+    const _quat = new THREE.Quaternion();
+    const _scl = new THREE.Vector3(1, 1, 1);
+
+    for (let i = 0; i < spCount; i++) {
+      const sp = signposts[i];
+      const y = getTerrainHeight(sp.x, sp.z);
+      // 杆子（y+0.9 = 杆子中心）
+      _pos.set(sp.x, y + 0.9, sp.z);
+      _quat.setFromAxisAngle(new THREE.Vector3(0,1,0), sp.angle);
+      _dm.compose(_pos, _quat, _scl);
+      poleIM.setMatrixAt(i, _dm);
+      // 指示板（y+1.65）
+      _pos.set(sp.x, y + 1.65, sp.z);
+      _dm.compose(_pos, _quat, _scl);
+      boardIM.setMatrixAt(i, _dm);
+      // 箭头（y+1.65，x偏移-0.15沿朝向）
+      const ax = sp.x - Math.sin(sp.angle) * 0.15;
+      const az = sp.z - Math.cos(sp.angle) * 0.15;
+      _pos.set(ax, y + 1.65, az);
+      _dm.compose(_pos, _quat, _scl);
+      arrowIM.setMatrixAt(i, _dm);
+    }
+    poleIM.instanceMatrix.needsUpdate = true;
+    boardIM.instanceMatrix.needsUpdate = true;
+    arrowIM.instanceMatrix.needsUpdate = true;
+    scene.add(poleIM); scene.add(boardIM); scene.add(arrowIM);
   }
 }
 
@@ -3336,12 +3726,7 @@ function updateDistanceCulling() {
     const underwater = rock.baseH < SEA_LEVEL - 0.3;
     rock._mesh.visible = inRange && !underwater;
   }
-  // 指路牌
-  for (const sp of signposts) {
-    if (!sp._group) continue;
-    const dx = sp.x - cx, dz = sp.z - cz;
-    sp._group.visible = (dx * dx + dz * dz) < CULL_DIST_SQ;
-  }
+  // 指路牌：InstancedMesh由Three.js自动frustum culling，无需手动遍历
 }
 
 function updateMinimap() {
@@ -3472,25 +3857,25 @@ function updateMinimap() {
       // 在小地图范围内：画蓝色相机图标
       ctx.save();
       ctx.translate(cpx, cpy);
-      // 相机主体
+      // 相机主体（13×8）
       ctx.fillStyle = 'rgba(40,120,255,0.9)';
-      ctx.fillRect(-5, -3, 10, 6);
-      ctx.fillRect(-3, -5, 6, 2); // 取景器
+      ctx.fillRect(-6.5, -4, 13, 8);
+      ctx.fillRect(-4, -7, 8, 3); // 取景器
       // 镜头
-      ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(180,220,255,0.9)'; ctx.fill();
       ctx.restore();
     } else {
       // 在小地图范围外：在圆形边缘显示蓝色方向指示箭头
       const ang = Math.atan2(dyM, dxM);
-      const edgeX = mmCenter + Math.cos(ang) * (mmR - 3);
-      const edgeY = mmCenter + Math.sin(ang) * (mmR - 3);
+      const edgeX = mmCenter + Math.cos(ang) * (mmR - 4);
+      const edgeY = mmCenter + Math.sin(ang) * (mmR - 4);
       ctx.save();
       ctx.translate(edgeX, edgeY);
       ctx.rotate(ang);
       ctx.fillStyle = 'rgba(40,120,255,0.85)';
       ctx.beginPath();
-      ctx.moveTo(5, 0); ctx.lineTo(-3, -3); ctx.lineTo(-3, 3);
+      ctx.moveTo(7, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4);
       ctx.closePath(); ctx.fill();
       ctx.restore();
     }
@@ -3513,20 +3898,20 @@ function updateMinimap() {
   ctx.save();
   ctx.translate(MINIMAP_SIZE / 2, MINIMAP_SIZE / 2);
   ctx.rotate(Math.PI - car.heading);
-  // 箭头形状：上方尖头 + 窄杆身
+  // 箭头形状：上方尖头 + 窄杆身（放大1.8倍，最醒目）
   ctx.beginPath();
-  ctx.moveTo(0, -7);     // 箭头尖端
-  ctx.lineTo(-4, -1);    // 左翼
-  ctx.lineTo(-1.5, -1);  // 左翼内收
-  ctx.lineTo(-1.5, 5);   // 杆左
-  ctx.lineTo(1.5, 5);    // 杆右
-  ctx.lineTo(1.5, -1);   // 右翼内收
-  ctx.lineTo(4, -1);     // 右翼
+  ctx.moveTo(0, -12.6);    // 箭头尖端
+  ctx.lineTo(-7.2, -1.8);  // 左翼
+  ctx.lineTo(-2.7, -1.8);  // 左翼内收
+  ctx.lineTo(-2.7, 9);     // 杆左
+  ctx.lineTo(2.7, 9);      // 杆右
+  ctx.lineTo(2.7, -1.8);   // 右翼内收
+  ctx.lineTo(7.2, -1.8);   // 右翼
   ctx.closePath();
   ctx.fillStyle = '#ff4444';
   ctx.fill();
   ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 0.8;
+  ctx.lineWidth = 1.2;
   ctx.stroke();
   ctx.restore();
 
@@ -4233,7 +4618,7 @@ const treasureBoxes = []; // { group, wx, wz, bobPhase, collected }
 
 function spawnTreasureBox() {
   if (!boxTemplate) return;
-  // 在车周围 60~200m 处随机放置（避开水域）
+  // 在车周围 60~200m 处随机放置（避开水域 + 避开NPC 10m范围）
   let wx, wz, wy;
   for (let attempt = 0; attempt < 10; attempt++) {
     const angle = Math.random() * Math.PI * 2;
@@ -4241,7 +4626,7 @@ function spawnTreasureBox() {
     wx = car.pos.x + Math.cos(angle) * dist;
     wz = car.pos.z + Math.sin(angle) * dist;
     wy = getTerrainHeight(wx, wz);
-    if (getWaterDepth(wx, wz) < 0.1) break; // 在陆地上
+    if (getWaterDepth(wx, wz) < 0.1 && !_isTooCloseToNPC(wx, wz)) break;
     if (attempt === 9) return; // 多次失败放弃
   }
 
@@ -4301,6 +4686,7 @@ function updateTreasureBoxes(dt) {
     if (dist < 3.5) {
       // 收集！
       box.collected = true;
+      playTreasureSound();
 
       // 彩带爆炸
       emitConfetti(box.wx, box.group.position.y, box.wz);
@@ -4493,9 +4879,28 @@ function buildNpcTemplate() {
   npcModelReady = true;
 }
 
+// 检查坐标是否与NPC或打卡相机太近（10m内）
+const MIN_ENTITY_DIST = 10;
+const MIN_ENTITY_DIST_SQ = MIN_ENTITY_DIST * MIN_ENTITY_DIST;
+function _isTooCloseToNPC(wx, wz) {
+  for (let i = 0; i < stuckNPCs.length; i++) {
+    const dx = wx - stuckNPCs[i].wx, dz = wz - stuckNPCs[i].wz;
+    if (dx * dx + dz * dz < MIN_ENTITY_DIST_SQ) return true;
+  }
+  // 同时检查打卡相机位置
+  if (typeof checkpointState !== 'undefined') {
+    for (let i = 0; i < checkpointState.length; i++) {
+      if (checkpointState[i].unlocked) continue;
+      const dx = wx - checkpointState[i].wx, dz = wz - checkpointState[i].wz;
+      if (dx * dx + dz * dz < MIN_ENTITY_DIST_SQ) return true;
+    }
+  }
+  return false;
+}
+
 function spawnStuckNPC() {
   if (!npcModelReady) return;
-  // 在道路上随机选一个点放置（避开水域）
+  // 在道路上随机选一个点放置（避开水域 + NPC间距 + 冰湖边缘）
   let wx, wz, biome, wy;
   for (let attempt = 0; attempt < 15; attempt++) {
     const trailIdx = Math.floor(Math.random() * TRAIL_POINTS.length);
@@ -4503,7 +4908,10 @@ function spawnStuckNPC() {
     wx = tp.x + (Math.random() - 0.5) * 4;
     wz = tp.z + (Math.random() - 0.5) * 4;
     wy = getTerrainHeight(wx, wz);
-    if (getWaterDepth(wx, wz) < 0.1) break;
+    // 冰湖及边缘排除（iceR * 1.3 覆盖冰面+过渡带）
+    const _niDx = (wx - ICE_CENTER_X) / 1.4, _niDz = (wz - ICE_CENTER_Z) / 0.9;
+    const _nearIce = Math.sqrt(_niDx * _niDx + _niDz * _niDz) < ICE_RADIUS * 1.3;
+    if (getWaterDepth(wx, wz) < 0.1 && !_isTooCloseToNPC(wx, wz) && !_nearIce) break;
     if (attempt === 14) return; // 放弃
   }
   biome = getBiomeName(wx, wz);
@@ -5001,6 +5409,7 @@ function updateStuckNPCs(dt) {
       // 相对速度在法线方向的分量（>0 = 两者靠近）
       const vRel = (cvx - nvx) * nx + (cvz - nvz) * nz;
       if (vRel > 0) {
+        playCollisionSound(vRel); // 碰撞力度越大声音越响
         // 等质量弹性碰撞 impulse = vRel（每方向各传递一半）
         const j = vRel * 0.85; // 0.85 = 略有能量损耗
         // 玩家速度矢量
@@ -5068,17 +5477,28 @@ function updateStuckNPCs(dt) {
     const ropeNx = ropeDist > 0.01 ? ropeDx / ropeDist : 0;
     const ropeNz = ropeDist > 0.01 ? ropeDz / ropeDist : 0;
 
-    // 拉力方向和箭头方向的一致性
+    // 绳子方向和箭头方向的点积（仍用于绳子颜色反馈）
     const pullDot = ropeNx * towState.towDir.x + ropeNz * towState.towDir.z;
-    const isPullingCorrectDir = pullDot > 0.3; // 绳子张力方向和箭头方向大致一致
 
     // 更新绳子几何体
     updateTowRopeGeometry(towState.rope, rearX, rearY, rearZ, anchorX, anchorY, anchorZ);
 
-    // ---- 物理拖拽：判定条件（提前计算，箭头/绳子/圈颜色都依赖它）----
-    const isMoving = car.throttle > 0 && Math.abs(car.speed) > 0.5;
-    const isTensioned = ropeStretch > 0.2; // 绳子有张力
-    const isValidTow = isTensioned && isPullingCorrectDir && isMoving;
+    // ---- 有效拖拽判定：基于NPC实际移动方向（不再要求玩家正向油门）----
+    const isTensioned = ropeStretch > 0.2;
+    // NPC帧间位移
+    const npcDx = npc.wx - (npc._prevTowX !== undefined ? npc._prevTowX : npc.wx);
+    const npcDz = npc.wz - (npc._prevTowZ !== undefined ? npc._prevTowZ : npc.wz);
+    const npcMoveDist = Math.sqrt(npcDx * npcDx + npcDz * npcDz);
+    const npcMoveSpeed = dt > 0 ? npcMoveDist / dt : 0;
+    // NPC移动方向和箭头方向的点积（归一化）
+    let npcMoveDot = 0;
+    if (npcMoveDist > 0.0001) {
+      npcMoveDot = (npcDx * towState.towDir.x + npcDz * towState.towDir.z) / npcMoveDist;
+    }
+    npc._prevTowX = npc.wx;
+    npc._prevTowZ = npc.wz;
+    // 有效条件：绳子有张力 + NPC正在往箭头方向移动
+    const isValidTow = isTensioned && npcMoveDot > 0.3 && npcMoveSpeed > 0.15;
     towState.isValid = isValidTow;
 
     // 箭头：正确方向绿色闪烁，否则黄色
@@ -5119,35 +5539,38 @@ function updateStuckNPCs(dt) {
       }
     }
 
-    if (isValidTow) {
-      // ---- 有效拖拽：物理拉动NPC ----
-      // 玩家车被拖拽减速（阻力）
-      car.speed *= (1 - 1.5 * dt); // 拉着重物，持续减速
+    // ---- NPC物理拖拽（只要绳子张紧且方向大致正确就施力）----
+    // 这独立于 isValidTow，解决"鸡生蛋"问题：先让NPC动起来，再判定方向是否有效
+    if (isTensioned && pullDot > 0) {
+      // 玩家车被拖拽减速
+      car.speed *= (1 - 1.5 * dt);
       if (Math.abs(car.speed) > 3.5) car.speed = Math.sign(car.speed) * 3.5;
-
-      // NPC被绳子张力拉动（沿绳子方向缓慢移动）
-      // 阻力很大（陷车），只有持续拉才会慢慢出来
-      const pullForce = Math.min(ropeStretch * 0.8, 2.0); // 拉伸越大，力越大，但有上限
-      const npcDrag = 0.85; // NPC很重，移动困难
-      // NPC只沿箭头方向投影有效（不能被斜拉偏移）
+      // NPC被绳子张力拉动
+      const pullForce = Math.min(ropeStretch * 0.8, 2.0);
+      const npcDrag = 0.85;
       const effectivePull = pullForce * pullDot;
       npc.wx += towState.towDir.x * effectivePull * dt * npcDrag;
       npc.wz += towState.towDir.z * effectivePull * dt * npcDrag;
       npc.group.position.x = npc.wx;
       npc.group.position.z = npc.wz;
+      // 车身微颤
+      towState.shakePhase += dt * 40;
+      car.bodyRoll += Math.sin(towState.shakePhase) * 0.004 * ropeStretch;
+      car.bodyPitch += Math.cos(towState.shakePhase * 1.3) * 0.003 * ropeStretch;
+    } else if (isTensioned) {
+      // 绳子有张力但方向不对，轻微阻力
+      car.speed *= (1 - 0.5 * dt);
+    }
 
+    // ---- 倒计时 + 视觉反馈（基于NPC实际移动方向）----
+    if (isValidTow) {
       // NPC逐渐脱困（慢慢升高恢复水平）
       const pullProg = 1 - towState.countdown / 5;
       npc.group.position.y = getTerrainHeight(npc.wx, npc.wz) + (-0.4 + pullProg * 0.35);
       npc.group.rotation.x *= 0.995;
       npc.group.rotation.z *= 0.995;
 
-      // 车身微颤（拉力震动）
-      towState.shakePhase += dt * 40;
-      car.bodyRoll += Math.sin(towState.shakePhase) * 0.004 * ropeStretch;
-      car.bodyPitch += Math.cos(towState.shakePhase * 1.3) * 0.003 * ropeStretch;
-
-      // 倒计时
+      // 倒计时推进
       if (!towState.counting) {
         towState.counting = true;
         towState.countdown = 5;
@@ -5164,30 +5587,26 @@ function updateStuckNPCs(dt) {
         setTimeout(() => { rescueMsg.style.display = 'none'; }, 2000);
       }
     } else {
-      // ---- 未有效拖拽 ----
+      // ---- 未有效拖拽：提示信息 ----
       if (towState.counting) {
         towState.counting = false;
-        rescueMsg.textContent = '请保持拉紧绳子沿箭头方向拖拽';
+        rescueMsg.textContent = '保持拉紧绳子沿箭头方向拖拽';
         rescueMsg.style.display = 'block';
       } else if (!isTensioned) {
-        rescueMsg.textContent = '开到箭头前方拉紧绳子';
+        rescueMsg.textContent = '拉紧绳子';
         rescueMsg.style.display = 'block';
-      } else if (!isPullingCorrectDir) {
+      } else if (pullDot <= 0) {
         rescueMsg.textContent = '请沿箭头方向拖拽';
         rescueMsg.style.display = 'block';
       } else {
-        rescueMsg.textContent = '保持油门沿箭头方向拖拽 5 秒';
+        rescueMsg.textContent = '用力沿箭头方向拖拽';
         rescueMsg.style.display = 'block';
-      }
-
-      // 绳子拉伸时也给玩家一点阻力（绳子有弹性）
-      if (isTensioned) {
-        car.speed *= (1 - 0.5 * dt);
       }
     }
 
     // 绳子断裂（拉太远）
     if (ropeDist > 20) {
+      playRopeSnapSound();
       endTow(false);
       rescueMsg.textContent = '绳子断开了！';
       rescueMsg.style.display = 'block';
@@ -5201,16 +5620,16 @@ function updateStuckNPCs(dt) {
 // ============================================================
 const CHECKPOINTS = [
   // 雨林区4个（雨林2是特殊救援打卡）
-  { id: '雨林1', biome: 'jungle', angle: _jungleDir - 0.3,  dist: 70,  rescue: false, thumb: '越野自驾/缩略图_雨林1.jpeg', video: '越野自驾/雨林1.mp4' },
-  { id: '雨林2', biome: 'jungle', angle: _jungleDir + 0.1,  dist: 120, rescue: true,  thumb: '越野自驾/缩略图_雨林2.png',  video: '越野自驾/雨林2.mp4' },
-  { id: '雨林3', biome: 'jungle', angle: _jungleDir + 0.35, dist: 90,  rescue: false, thumb: '越野自驾/缩略图_雨林3.jpeg', video: '越野自驾/雨林3.mp4' },
-  { id: '雨林4', biome: 'jungle', angle: _jungleDir - 0.15, dist: 150, rescue: false, thumb: '越野自驾/缩略图_雨林4.png',  video: '越野自驾/雨林4.mp4' },
+  { id: '雨林1', name: '清晨的泥河村', biome: 'jungle', angle: _jungleDir - 0.3,  dist: 70,  rescue: false, thumb: '越野自驾/缩略图_雨林1_清晨的泥河村.jpeg', video: '越野自驾/雨林1_清晨的泥河村.mp4' },
+  { id: '雨林2', name: '救援电力小哥', biome: 'jungle', angle: _jungleDir + 0.1,  dist: 120, rescue: true,  thumb: '越野自驾/缩略图_雨林2_救援电力小哥.png',  video: '越野自驾/雨林2_救援电力小哥.mp4' },
+  { id: '雨林3', name: '茶山东甸子梁', biome: 'jungle', angle: _jungleDir + 0.35, dist: 90,  rescue: false, thumb: '越野自驾/缩略图_雨林3_茶山东甸子梁.jpeg', video: '越野自驾/雨林3_茶山东甸子梁.mp4' },
+  { id: '雨林4', name: '草原天路', biome: 'jungle', angle: _jungleDir - 0.15, dist: 150, rescue: false, thumb: '越野自驾/缩略图_雨林4_草原天路.png',  video: '越野自驾/雨林4_草原天路.mp4' },
   // 冰雪区3个（冰雪2是特殊救援打卡）
-  { id: '冰雪1', biome: 'snow', angle: Math.atan2(ICE_CENTER_Z, ICE_CENTER_X), dist: Math.sqrt(ICE_CENTER_X*ICE_CENTER_X+ICE_CENTER_Z*ICE_CENTER_Z), rescue: false, thumb: '越野自驾/缩略图_冰雪1.jpeg', video: '越野自驾/冰雪1.mp4' },
-  { id: '冰雪2', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.2, dist: 130, rescue: true,  thumb: '越野自驾/缩略图_冰雪2.png',  video: '越野自驾/冰雪2.mp4' },
-  { id: '冰雪3', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.5, dist: 100, rescue: false, thumb: '越野自驾/缩略图_冰雪3.png',  video: '越野自驾/冰雪3.mp4' },
+  { id: '冰雪1', name: '冬日官厅水库', biome: 'snow', angle: Math.atan2(ICE_CENTER_Z, ICE_CENTER_X), dist: Math.sqrt(ICE_CENTER_X*ICE_CENTER_X+ICE_CENTER_Z*ICE_CENTER_Z), rescue: false, thumb: '越野自驾/缩略图_冰雪1_冬日官厅水库.jpeg', video: '越野自驾/冰雪1_冬日官厅水库.mp4' },
+  { id: '冰雪2', name: '桦皮岭陷车', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.2, dist: 130, rescue: true,  thumb: '越野自驾/缩略图_冰雪2_桦皮岭陷车.png',  video: '越野自驾/冰雪2_桦皮岭陷车..mp4' },
+  { id: '冰雪3', name: '冬季草原天路', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.5, dist: 100, rescue: false, thumb: '越野自驾/缩略图_冰雪3_冬季草原天路.png',  video: '越野自驾/冰雪3_冬季草原天路.mp4' },
   // 海滩区1个（特殊救援打卡）
-  { id: '海滩1', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert, dist: 60, rescue: true, thumb: '越野自驾/缩略图_海滩1.png', video: '越野自驾/海滩1.mp4' },
+  { id: '海滩1', name: '金海湖救援', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert, dist: 60, rescue: true, thumb: '越野自驾/缩略图_海滩1_金海湖救援.png', video: '越野自驾/海滩1_金海湖救援.mp4' },
 ];
 
 // 运行时状态
@@ -5269,12 +5688,13 @@ function initCheckpoints() {
     if (cp.group) continue; // 已创建
     const group = new THREE.Group();
     const model = cameraTemplate.clone();
+
     group.add(model);
     const wy = getTerrainHeight(cp.wx, cp.wz);
     group.position.set(cp.wx, wy + 1.5, cp.wz);
-    // 发光光柱（蓝色，区别于宝箱的金色）
+    const pillarColor = 0x4488ff;
     const pillarGeo = new THREE.CylinderGeometry(0.12, 0.35, 10, 8, 1, true);
-    const pillarMat = new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false });
+    const pillarMat = new THREE.MeshBasicMaterial({ color: pillarColor, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false });
     const pillar = new THREE.Mesh(pillarGeo, pillarMat);
     pillar.position.y = 5;
     group.add(pillar);
@@ -5365,10 +5785,10 @@ function updateAchieveBarUI() {
   for (let i = 0; i < checkpointState.length; i++) {
     const cp = checkpointState[i];
     if (cp.unlocked) {
-      html += `<div class="ach-slot unlocked" id="achSlot${i}" onclick="playVideo('${encodeURI(cp.video)}')" title="${cp.id}">
+      html += `<div class="ach-slot unlocked" id="achSlot${i}" onclick="playVideo('${encodeURI(cp.video)}')" title="${cp.name}">
         <img src="${encodeURI(cp.thumb)}"><div class="ach-play"></div></div>`;
     } else {
-      html += `<div class="ach-slot locked" id="achSlot${i}" title="${cp.id}"></div>`;
+      html += `<div class="ach-slot locked" id="achSlot${i}" title="${cp.name}"></div>`;
     }
   }
   bar.innerHTML = html;
@@ -5385,6 +5805,8 @@ window.playVideo = function(src) {
   overlay.style.display = 'flex';
   player.play();
   gamePausedForVideo = true;
+  // 暂停所有游戏音频
+  if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
   // 停止 WebGL 渲染循环，释放 GPU 给视频解码
   if (_animFrameId !== null) { cancelAnimationFrame(_animFrameId); _animFrameId = null; }
 };
@@ -5396,6 +5818,8 @@ window.closeVideo = function(e) {
   player.pause(); player.src = '';
   overlay.style.display = 'none';
   gamePausedForVideo = false;
+  // 恢复游戏音频
+  if (audioCtx && audioCtx.state === 'suspended' && audioResumed) audioCtx.resume();
   // 恢复游戏循环
   if (_animFrameId === null) { clock.getDelta(); animate(); }
 };
@@ -5457,11 +5881,11 @@ function updateCheckpoints(dt) {
     // 靠近时显示提示
     if (dist < 12) {
       if (cp.rescue && !cp.rescueDone) {
-        cpMsg.textContent = '📷 ' + cp.id + ' — 救援该车辆打卡';
+        cpMsg.textContent = '📷 ' + cp.name + ' — 救援该车辆打卡';
         cpMsg.style.display = 'block';
         showMsg = true;
       } else if (!cp.rescue) {
-        cpMsg.textContent = '📷 ' + cp.id;
+        cpMsg.textContent = '📷 ' + cp.name;
         cpMsg.style.display = 'block';
         showMsg = true;
       }
@@ -5473,6 +5897,7 @@ function updateCheckpoints(dt) {
 
 function unlockCheckpoint(cp) {
   if (cp.unlocked) return;
+  playCheckpointSound();
   const cpIdx = checkpointState.indexOf(cp);
   cp.unlocked = true;
   if (cp.group) { disposeObject(cp.group); cp.group = null; }
@@ -5541,7 +5966,7 @@ function unlockCheckpoint(cp) {
   requestAnimationFrame(flyStep);
 
   const cpMsg = document.getElementById('checkpointMsg');
-  cpMsg.innerHTML = '🎉 打卡成功：' + cp.id;
+  cpMsg.innerHTML = '🎉 打卡成功：' + cp.name;
   cpMsg.style.display = 'block';
   setTimeout(() => { cpMsg.style.display = 'none'; }, 2500);
 }
@@ -5637,6 +6062,7 @@ function animate() {
   _ps(); updateStuckNPCs(dt); _pe('npcs');
   _ps(); updateFlyCoins(dt); _pe('coins');
   _ps(); updateCheckpoints(dt); _pe('checkpoints');
+  _ps(); updateAudio(dt); _pe('audio');
 
   _calRenderTimer += dt;
   if (_calRenderTimer > 0.5) {
