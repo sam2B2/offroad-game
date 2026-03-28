@@ -2530,15 +2530,29 @@ const carLights = {
 
 const loader = new GLTFLoader();
 loader.load(
-  'lp_offroad_truck1/scene.gltf',
+  'haval/newcar.glb',
   (gltf) => { try {
     truckModel = gltf.scene;
+
+    // ---- 新模型节点清理 ----
+    // GLB有两个根节点：ParentNode(tripo新车身,自带scale=18.3) + Sketchfab_model(轮子+备胎+旧车身)
+    // 删除旧Truckbody，保留轮子和备胎在原位（它们和truckModel一起做pitch/roll）
+    let truckbodyNode = null;
+    truckModel.traverse(child => {
+      if (child.name === 'Truckbody') truckbodyNode = child;
+    });
+    if (truckbodyNode && truckbodyNode.parent) {
+      truckbodyNode.parent.remove(truckbodyNode);
+      truckbodyNode.traverse(c => { if (c.isMesh) { c.geometry?.dispose(); c.material?.dispose?.(); } });
+    }
+    // 备胎(WTmesh_BD)留在RootNode下，和4个轮子同级
+    // 整个truckModel做pitch/roll时，备胎自然跟随
 
     // Scale
     const box = new THREE.Box3().setFromObject(truckModel);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = 4.5 / maxDim;
+    const scale = 5.4 / maxDim; // 4.5 × 1.2 = 5.4（放大1.2倍）
     truckModel.scale.setScalar(scale);
 
     // Re-center
@@ -2557,15 +2571,14 @@ loader.load(
         child.receiveShadow = true;
         const mat = child.material;
         const name = mat.name || '';
-        if (name === 'lambert6') { mat.color.set(0x3a3a3a); mat.metalness = 0; mat.roughness = 0.85; }
-        if (name === 'blinn9') { mat.color.set(0xaaaaaa); mat.metalness = 0.6; mat.roughness = 0.2; }
-        if (name === 'lambert7') { mat.color.set(0x888888); mat.metalness = 0.3; mat.roughness = 0.4; }
-        if (name === 'blinn1') { mat.color.set(0x4488bb); mat.metalness = 0.1; mat.roughness = 0.05; mat.transparent = true; mat.opacity = 0.6; }
-        if (name === 'phong1') { mat.color.set(0x2a2a2a); mat.metalness = 0.1; mat.roughness = 0.6; }
-        if (name === 'lambert8') { mat.color.set(0x333333); mat.metalness = 0.1; mat.roughness = 0.7; }
-        if (name === 'lambert4' || name === 'lambert5') { mat.color.set(0x336688); mat.metalness = 0.05; mat.roughness = 0.1; mat.transparent = true; mat.opacity = 0.5; }
-        if (name === 'blinn8') { mat.color.set(0xcccccc); mat.metalness = 0.7; mat.roughness = 0.15; }
-        if (name === 'lambert3') { mat.color.set(0x444444); mat.metalness = 0.1; mat.roughness = 0.7; }
+        // tripo车身(Material.001)带纹理，保持原样不调色
+        if (name === 'Material.001') { /* keep texture */ }
+        // 轮子/备胎材质调色（和旧模型一致的材质名）
+        else if (name === 'lambert6') { mat.color.set(0x3a3a3a); mat.metalness = 0; mat.roughness = 0.85; }
+        else if (name === 'blinn9') { mat.color.set(0xaaaaaa); mat.metalness = 0.6; mat.roughness = 0.2; }
+        else if (name === 'lambert7') { mat.color.set(0x888888); mat.metalness = 0.3; mat.roughness = 0.4; }
+        else if (name === 'phong1') { mat.color.set(0x2a2a2a); mat.metalness = 0.1; mat.roughness = 0.6; }
+        else if (name === 'lambert8') { mat.color.set(0x333333); mat.metalness = 0.1; mat.roughness = 0.7; }
       }
     });
 
@@ -2659,45 +2672,69 @@ loader.load(
     console.log(`[Vehicle] wheelbase=${WHEELBASE.toFixed(3)}, halfTrack=${HALF_TRACK_WIDTH.toFixed(3)}, cgH=${CG_HEIGHT.toFixed(3)}, carH=${carHeight.toFixed(3)}, carW=${carWidth.toFixed(3)}, wheelR=${wheelRadius.toFixed(3)}, critAngle=${(Math.atan2(HALF_TRACK_WIDTH, CG_HEIGHT) * 57.3).toFixed(1)}°`);
 
     // ============================================================
-    // HEADLIGHTS & TAILLIGHTS — 从模型网格精确定位
+    // HEADLIGHTS & TAILLIGHTS — 从模型灯光mesh精确定位
     // ============================================================
-    // 找到灯光相关的材质mesh，获取精确位置
-    let headlightMesh = null, taillightMesh = null;
-    truckModel.traverse((child) => {
-      if (!child.isMesh) return;
-      const mName = child.material?.name || '';
-      // blinn4 = 前灯（黄色），blinn5 = 尾灯（纯红）
-      if (mName === 'blinn4') headlightMesh = child;
-      if (mName === 'blinn5') taillightMesh = child;
-    });
-
-    // 计算灯光mesh的包围盒中心（在truckModel空间内）
     truckGroup.updateMatrixWorld(true);
 
-    function getMeshBoundsLocal(mesh) {
-      const box = new THREE.Box3().setFromObject(mesh);
-      // 转到truckModel本地空间
-      const inv = new THREE.Matrix4().copy(truckModel.matrixWorld).invert();
-      box.applyMatrix4(inv);
-      return box;
+    // 找到灯光mesh
+    let headMeshL = null, headMeshR = null, tailMeshL = null, tailMeshR = null;
+    truckModel.traverse(child => {
+      if (!child.isMesh) return;
+      const n = child.name || '';
+      if (n === 'Mesh_6') headMeshL = child;
+      if (n === 'Mesh_7') headMeshR = child;
+      if (n === 'Mesh_22') tailMeshR = child;
+      if (n === 'Mesh_23') tailMeshL = child;
+    });
+
+    // 获取mesh在truckModel本地空间的精确位置（灯要add到truckModel上）
+    const _invModel = new THREE.Matrix4().copy(truckModel.matrixWorld).invert();
+    function _getLocalPos(mesh) {
+      if (!mesh) return null;
+      const wp = new THREE.Vector3();
+      mesh.getWorldPosition(wp);
+      return wp.applyMatrix4(_invModel);
     }
+    const hlL = _getLocalPos(headMeshL);
+    const hlR = _getLocalPos(headMeshR);
+    const tlL = _getLocalPos(tailMeshL);
+    const tlR = _getLocalPos(tailMeshR);
+    console.log('[Lights] headL:', hlL, 'headR:', hlR, 'tailL:', tlL, 'tailR:', tlR);
 
-    const headBox = headlightMesh ? getMeshBoundsLocal(headlightMesh) : null;
-    const tailBox = taillightMesh ? getMeshBoundsLocal(taillightMesh) : null;
-
-    // 前灯位置（从模型mesh推算）
-    const hZ = headBox ? headBox.max.z + 0.02 : finalBox.max.z - finalBox.min.z / 2 * 0.9;
-    const hYlo = headBox ? headBox.min.y + (headBox.max.y - headBox.min.y) * 0.25 : carHeight * 0.4;
-    const hYhi = headBox ? headBox.min.y + (headBox.max.y - headBox.min.y) * 0.75 : carHeight * 0.5;
-    const hXout = headBox ? (headBox.max.x - headBox.min.x) * 0.35 : HALF_TRACK_WIDTH * 0.6;
-    const hXin = headBox ? (headBox.max.x - headBox.min.x) * 0.15 : HALF_TRACK_WIDTH * 0.3;
+    // 前灯位置
+    const hZ = hlL ? (hlL.z + hlR.z) / 2 : (finalBox.max.z - finalBox.min.z) / 2 * 0.92;
+    const hY = hlL ? (hlL.y + hlR.y) / 2 : carHeight * 0.43;
+    const hYlo = hY - 0.08;
+    const hYhi = hY + 0.08;
+    const hXL = hlL ? hlL.x : -HALF_TRACK_WIDTH * 0.6;
+    const hXR = hlR ? hlR.x : HALF_TRACK_WIDTH * 0.6;
 
     // 尾灯位置
-    const tZ = tailBox ? tailBox.min.z - 0.02 : -(finalBox.max.z - finalBox.min.z) / 2 * 0.9;
-    const tYlo = tailBox ? tailBox.min.y + (tailBox.max.y - tailBox.min.y) * 0.15 : carHeight * 0.35;
-    const tYhi = tailBox ? tailBox.min.y + (tailBox.max.y - tailBox.min.y) * 0.65 : carHeight * 0.45;
-    const tXout = tailBox ? (tailBox.max.x - tailBox.min.x) * 0.35 : HALF_TRACK_WIDTH * 0.65;
-    const tXin = tailBox ? (tailBox.max.x - tailBox.min.x) * 0.15 : HALF_TRACK_WIDTH * 0.3;
+    const tZ = tlL ? (tlL.z + tlR.z) / 2 : -(finalBox.max.z - finalBox.min.z) / 2 * 0.88;
+    const tY = tlL ? (tlL.y + tlR.y) / 2 : carHeight * 0.4;
+    const tYlo = tY - 0.06;
+    const tYhi = tY + 0.06;
+    const tXL = tlL ? tlL.x : -HALF_TRACK_WIDTH * 0.65;
+    const tXR = tlR ? tlR.x : HALF_TRACK_WIDTH * 0.65;
+
+    // 前灯共享emissive材质（updateCarLights同时控制两个灯罩）
+    const headEmMat = (headMeshL || headMeshR) ? (headMeshL || headMeshR).material.clone() : null;
+    if (headEmMat) {
+      headEmMat.emissive = new THREE.Color(0x000000);
+      headEmMat.emissiveIntensity = 1;
+      if (headMeshL) headMeshL.material = headEmMat;
+      if (headMeshR) headMeshR.material = headEmMat;
+      carLights.headMat = headEmMat;
+    }
+    // 尾灯共享emissive材质
+    const tailEmMat = (tailMeshL || tailMeshR) ? (tailMeshL || tailMeshR).material.clone() : null;
+    if (tailEmMat) {
+      tailEmMat.emissive = new THREE.Color(0x000000);
+      tailEmMat.emissiveIntensity = 1;
+      if (tailMeshL) tailMeshL.material = tailEmMat;
+      if (tailMeshR) tailMeshR.material = tailEmMat;
+      carLights.tailMat = tailEmMat;
+    }
 
     // -- 前大灯 ×4: 上2=远光(High), 下2=近光(Low) --
     function addHeadlight(x, y, z, distance, angle, key) {
@@ -2720,20 +2757,16 @@ loader.load(
       return light;
     }
 
-    // 远光灯（上排，照得更远更窄更亮）
-    carLights.headHighL = addHeadlight(-hXout, hYhi, hZ, 80, Math.PI / 9, 'HL');
-    carLights.headHighR = addHeadlight(hXout, hYhi, hZ, 80, Math.PI / 9, 'HR');
-    // 远光target更远更平
-    carLights.headHighL.target.position.set(-hXout * 0.3, hYhi - 0.5, hZ + 40);
-    carLights.headHighR.target.position.set(hXout * 0.3, hYhi - 0.5, hZ + 40);
+    // 远光灯（上排，照得更远更窄更亮）— 使用精确灯位
+    carLights.headHighL = addHeadlight(hXL, hYhi, hZ, 80, Math.PI / 9, 'HL');
+    carLights.headHighR = addHeadlight(hXR, hYhi, hZ, 80, Math.PI / 9, 'HR');
+    carLights.headHighL.target.position.set(hXL * 0.3, hYhi - 0.5, hZ + 40);
+    carLights.headHighR.target.position.set(hXR * 0.3, hYhi - 0.5, hZ + 40);
     // 近光灯（下排，照得近但更宽，略朝下）
-    carLights.headLowL = addHeadlight(-hXin, hYlo, hZ, 30, Math.PI / 4.5, 'LL');
-    carLights.headLowR = addHeadlight(hXin, hYlo, hZ, 30, Math.PI / 4.5, 'LR');
-    // 近光target更朝下
-    carLights.headLowL.target.position.y = hYlo - 2;
-    carLights.headLowL.target.position.z = hZ + 12;
-    carLights.headLowR.target.position.y = hYlo - 2;
-    carLights.headLowR.target.position.z = hZ + 12;
+    carLights.headLowL = addHeadlight(hXL, hYlo, hZ, 30, Math.PI / 4.5, 'LL');
+    carLights.headLowR = addHeadlight(hXR, hYlo, hZ, 30, Math.PI / 4.5, 'LR');
+    carLights.headLowL.target.position.set(hXL * 0.5, hYlo - 2, hZ + 12);
+    carLights.headLowR.target.position.set(hXR * 0.5, hYlo - 2, hZ + 12);
 
     // -- 尾灯 ×4: 下2=常亮(Running), 上2=刹车(Brake) --
     function addTaillight(x, y, z, key) {
@@ -2750,22 +2783,14 @@ loader.load(
       return light;
     }
 
-    // 常亮尾灯（下排）
-    carLights.tailRunL = addTaillight(-tXout, tYlo, tZ, 'TRL');
-    carLights.tailRunR = addTaillight(tXout, tYlo, tZ, 'TRR');
+    // 常亮尾灯（下排）— 使用精确灯位
+    carLights.tailRunL = addTaillight(tXL, tYlo, tZ, 'TRL');
+    carLights.tailRunR = addTaillight(tXR, tYlo, tZ, 'TRR');
     // 刹车灯（上排）
-    carLights.tailBrakeL = addTaillight(-tXin, tYhi, tZ, 'TBL');
-    carLights.tailBrakeR = addTaillight(tXin, tYhi, tZ, 'TBR');
+    carLights.tailBrakeL = addTaillight(tXL, tYhi, tZ, 'TBL');
+    carLights.tailBrakeR = addTaillight(tXR, tYhi, tZ, 'TBR');
 
-    // 保存灯光材质引用（用于emissive控制）
-    if (headlightMesh) {
-      carLights.headMat = headlightMesh.material;
-      headlightMesh.material.emissive = new THREE.Color(0x000000);
-    }
-    if (taillightMesh) {
-      carLights.tailMat = taillightMesh.material;
-      taillightMesh.material.emissive = new THREE.Color(0x000000);
-    }
+    // 灯光材质引用已在上方从灯光mesh设置（headMat/tailMat）
 
     carLights.installed = true;
 
@@ -4860,24 +4885,43 @@ let _npcSpawnTimer = 0;
 let npcModelReady = false;
 let npcTemplateGroup = null;
 
-function buildNpcTemplate() {
-  if (!truckModel || npcTemplateGroup) return;
-  npcTemplateGroup = truckModel.clone();
-  // 改为不同颜色标识NPC
-  const npcColors = [0xcc4444, 0x44aa44, 0x4466cc, 0xccaa22, 0xcc6622];
-  let colorIdx = 0;
-  npcTemplateGroup.traverse(c => {
-    if (c.isMesh && c.material) {
-      const name = c.material.name || '';
-      // 车身主色改为随机暖色
-      if (name === 'lambert6') {
-        c.material = c.material.clone();
-        c.material.color.set(npcColors[colorIdx % npcColors.length]);
+// NPC使用旧皮卡模型（和玩家车不同，更容易区分）
+{
+  const npcLoader = new GLTFLoader();
+  npcLoader.load('lp_offroad_truck1/scene.gltf', (npcGltf) => {
+    const npcRaw = npcGltf.scene;
+    // 缩放到和玩家车类似大小
+    const npcBox = new THREE.Box3().setFromObject(npcRaw);
+    const npcSize = npcBox.getSize(new THREE.Vector3());
+    const npcScale = 4.5 / Math.max(npcSize.x, npcSize.y, npcSize.z);
+    npcRaw.scale.setScalar(npcScale);
+    // 居中
+    const npcBox2 = new THREE.Box3().setFromObject(npcRaw);
+    const npcCenter = npcBox2.getCenter(new THREE.Vector3());
+    npcRaw.position.x -= npcCenter.x;
+    npcRaw.position.z -= npcCenter.z;
+    npcRaw.position.y -= npcBox2.min.y;
+    // 材质调色
+    npcRaw.traverse(c => {
+      if (c.isMesh) {
+        c.castShadow = false; // NPC不投射阴影（节省性能）
+        c.receiveShadow = true;
+        const name = c.material?.name || '';
+        if (name === 'lambert6') { c.material = c.material.clone(); c.material.color.set(0x3a3a3a); c.material.metalness = 0; c.material.roughness = 0.85; }
+        if (name === 'blinn9') { c.material.color.set(0xaaaaaa); c.material.metalness = 0.6; c.material.roughness = 0.2; }
+        if (name === 'lambert7') { c.material.color.set(0x888888); c.material.metalness = 0.3; c.material.roughness = 0.4; }
+        if (name === 'phong1') { c.material.color.set(0x2a2a2a); c.material.metalness = 0.1; c.material.roughness = 0.6; }
+        if (name === 'lambert8') { c.material.color.set(0x333333); c.material.metalness = 0.1; c.material.roughness = 0.7; }
       }
-    }
+    });
+    npcTemplateGroup = npcRaw;
+    npcModelReady = true;
+    console.log('[NPC] Pickup truck model loaded for NPCs');
   });
-  npcModelReady = true;
 }
+
+// buildNpcTemplate不再需要（NPC模型独立加载）
+function buildNpcTemplate() { /* noop — NPC模型由独立loader加载 */ }
 
 // 检查坐标是否与NPC或打卡相机太近（10m内）
 const MIN_ENTITY_DIST = 10;
@@ -5241,36 +5285,57 @@ let playerBubble = null;       // "按H救援车辆"
 let playerBubbleWarn = null;   // "需要拖车钩和拖车绳"
 let _warnBubbleTimer = 0;
 
-function _makeBubbleSprite(text, width) {
-  const w = width || 256;
+function _makeBubbleSprite(text, width, fontSize, worldHeight) {
+  // 用2倍分辨率绘制canvas，保证文字清晰
+  const dpr = 2;
+  const logicW = width || 256;
+  const logicFS = fontSize || 16;
+  const logicH = Math.max(50, logicFS * 3.2);
+  const w = logicW * dpr, h = logicH * dpr;
+  const fs = logicFS * dpr;
   const cvs = document.createElement('canvas');
-  cvs.width = w; cvs.height = 64;
+  cvs.width = w; cvs.height = h;
   const ctx = cvs.getContext('2d');
+  const bodyH = h - 16 * dpr;
+  // 背景圆角矩形
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.beginPath();
-  // roundRect polyfill
-  { const _x=4,_y=4,_w=w-8,_h=42,_r=10; ctx.moveTo(_x+_r,_y); ctx.lineTo(_x+_w-_r,_y); ctx.quadraticCurveTo(_x+_w,_y,_x+_w,_y+_r); ctx.lineTo(_x+_w,_y+_h-_r); ctx.quadraticCurveTo(_x+_w,_y+_h,_x+_w-_r,_y+_h); ctx.lineTo(_x+_r,_y+_h); ctx.quadraticCurveTo(_x,_y+_h,_x,_y+_h-_r); ctx.lineTo(_x,_y+_r); ctx.quadraticCurveTo(_x,_y,_x+_r,_y); }
-  
+  { const _x=4*dpr,_y=4*dpr,_w=w-8*dpr,_h=bodyH-4*dpr,_r=10*dpr;
+    ctx.moveTo(_x+_r,_y); ctx.lineTo(_x+_w-_r,_y); ctx.quadraticCurveTo(_x+_w,_y,_x+_w,_y+_r);
+    ctx.lineTo(_x+_w,_y+_h-_r); ctx.quadraticCurveTo(_x+_w,_y+_h,_x+_w-_r,_y+_h);
+    ctx.lineTo(_x+_r,_y+_h); ctx.quadraticCurveTo(_x,_y+_h,_x,_y+_h-_r);
+    ctx.lineTo(_x,_y+_r); ctx.quadraticCurveTo(_x,_y,_x+_r,_y); }
   ctx.fill();
+  // 小三角尾巴
   ctx.beginPath();
-  ctx.moveTo(w/2 - 10, 46); ctx.lineTo(w/2, 60); ctx.lineTo(w/2 + 10, 46);
+  ctx.moveTo(w/2-8*dpr, bodyH); ctx.lineTo(w/2, bodyH+12*dpr); ctx.lineTo(w/2+8*dpr, bodyH);
   ctx.fill();
+  // 文字
   ctx.fillStyle = '#111';
-  ctx.font = 'bold 16px sans-serif';
+  ctx.font = 'bold ' + fs + 'px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(text, w / 2, 32);
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, w / 2, (bodyH - 4*dpr) / 2 + 4*dpr);
   const tex = new THREE.CanvasTexture(cvs);
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(w / 64, 1, 1);
+  // sprite scale 保持和 canvas 完全相同的宽高比，不变形
+  const wh = worldHeight || 1.5; // 世界空间高度
+  const aspect = logicW / logicH;
+  sprite.scale.set(wh * aspect, wh, 1);
   sprite.visible = false;
   scene.add(sprite);
   return sprite;
 }
 
 function ensurePlayerBubble() {
-  if (!playerBubble) playerBubble = _makeBubbleSprite('按 H 救援车辆', 256);
-  if (!playerBubbleWarn) playerBubbleWarn = _makeBubbleSprite('需要拖车钩和拖车绳完成救援', 380);
+  if (!playerBubble) {
+    // worldHeight=2.2，比HELP气泡(scale 3×1.5)更大更醒目
+    playerBubble = _makeBubbleSprite('按 H 救援车辆', 280, 24, 2.2);
+  }
+  if (!playerBubbleWarn) {
+    playerBubbleWarn = _makeBubbleSprite('需要拖车钩和拖车绳完成救援', 440, 20, 2.0);
+  }
 }
 
 function updateStuckNPCs(dt) {
@@ -5628,8 +5693,9 @@ const CHECKPOINTS = [
   { id: '冰雪1', name: '冬日官厅水库', biome: 'snow', angle: Math.atan2(ICE_CENTER_Z, ICE_CENTER_X), dist: Math.sqrt(ICE_CENTER_X*ICE_CENTER_X+ICE_CENTER_Z*ICE_CENTER_Z), rescue: false, thumb: '越野自驾/缩略图_冰雪1_冬日官厅水库.jpeg', video: '越野自驾/冰雪1_冬日官厅水库.mp4' },
   { id: '冰雪2', name: '桦皮岭陷车', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.2, dist: 130, rescue: true,  thumb: '越野自驾/缩略图_冰雪2_桦皮岭陷车.png',  video: '越野自驾/冰雪2_桦皮岭陷车..mp4' },
   { id: '冰雪3', name: '冬季草原天路', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.5, dist: 100, rescue: false, thumb: '越野自驾/缩略图_冰雪3_冬季草原天路.png',  video: '越野自驾/冰雪3_冬季草原天路.mp4' },
-  // 海滩区1个（特殊救援打卡）
+  // 海滩区2个（海滩1是特殊救援打卡，海滩2是普通打卡）
   { id: '海滩1', name: '金海湖救援', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert, dist: 60, rescue: true, thumb: '越野自驾/缩略图_海滩1_金海湖救援.png', video: '越野自驾/海滩1_金海湖救援.mp4' },
+  { id: '海滩2', name: '海阳市', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert + 0.4, dist: 90, rescue: false, thumb: '越野自驾/缩略图_海滩2_海阳市.png', video: '越野自驾/海滩2_海阳市..mp4' },
 ];
 
 // 运行时状态
