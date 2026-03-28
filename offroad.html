@@ -129,6 +129,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
   <div class="go-hint">按 <kbd style="padding:2px 8px;background:#555;border:1px solid #777;border-radius:3px;color:#fff;">R</kbd> 重置游戏</div></div>
 <div id="invTooltip"></div>
 <div id="rescueMsg"></div>
+
 <div id="diffLockTip" style="display:none;position:fixed;top:28%;left:50%;transform:translateX(-50%);
   font-family:'Noto Sans SC',sans-serif;font-size:16px;color:#fff;background:rgba(255,136,0,0.85);
   padding:10px 24px;border-radius:10px;pointer-events:none;z-index:50;white-space:nowrap;
@@ -2676,65 +2677,18 @@ loader.load(
     // ============================================================
     truckGroup.updateMatrixWorld(true);
 
-    // 找到灯光mesh
-    let headMeshL = null, headMeshR = null, tailMeshL = null, tailMeshR = null;
-    truckModel.traverse(child => {
-      if (!child.isMesh) return;
-      const n = child.name || '';
-      if (n === 'Mesh_6') headMeshL = child;
-      if (n === 'Mesh_7') headMeshR = child;
-      if (n === 'Mesh_22') tailMeshR = child;
-      if (n === 'Mesh_23') tailMeshL = child;
-    });
+    // 灯位：固定比例参数（通过调试滑块确定）
+    const carLen = finalBox.max.z - finalBox.min.z;
 
-    // 获取mesh在truckModel本地空间的精确位置（灯要add到truckModel上）
-    const _invModel = new THREE.Matrix4().copy(truckModel.matrixWorld).invert();
-    function _getLocalPos(mesh) {
-      if (!mesh) return null;
-      const wp = new THREE.Vector3();
-      mesh.getWorldPosition(wp);
-      return wp.applyMatrix4(_invModel);
-    }
-    const hlL = _getLocalPos(headMeshL);
-    const hlR = _getLocalPos(headMeshR);
-    const tlL = _getLocalPos(tailMeshL);
-    const tlR = _getLocalPos(tailMeshR);
-    console.log('[Lights] headL:', hlL, 'headR:', hlR, 'tailL:', tlL, 'tailR:', tlR);
+    // 前大灯（X:1.08 Y:2.05 Z:2.54）
+    const hXL = -carWidth * 1.08, hXR = carWidth * 1.08;
+    const hY = carHeight * 2.05, hZ = carLen / 2 * 2.54;
+    const hYlo = hY - 0.08, hYhi = hY + 0.08;
 
-    // 前灯位置
-    const hZ = hlL ? (hlL.z + hlR.z) / 2 : (finalBox.max.z - finalBox.min.z) / 2 * 0.92;
-    const hY = hlL ? (hlL.y + hlR.y) / 2 : carHeight * 0.43;
-    const hYlo = hY - 0.08;
-    const hYhi = hY + 0.08;
-    const hXL = hlL ? hlL.x : -HALF_TRACK_WIDTH * 0.6;
-    const hXR = hlR ? hlR.x : HALF_TRACK_WIDTH * 0.6;
-
-    // 尾灯位置
-    const tZ = tlL ? (tlL.z + tlR.z) / 2 : -(finalBox.max.z - finalBox.min.z) / 2 * 0.88;
-    const tY = tlL ? (tlL.y + tlR.y) / 2 : carHeight * 0.4;
-    const tYlo = tY - 0.06;
-    const tYhi = tY + 0.06;
-    const tXL = tlL ? tlL.x : -HALF_TRACK_WIDTH * 0.65;
-    const tXR = tlR ? tlR.x : HALF_TRACK_WIDTH * 0.65;
-
-    // 前灯共享emissive材质（updateCarLights同时控制两个灯罩）
-    const headEmMat = (headMeshL || headMeshR) ? (headMeshL || headMeshR).material.clone() : null;
-    if (headEmMat) {
-      headEmMat.emissive = new THREE.Color(0x000000);
-      headEmMat.emissiveIntensity = 1;
-      if (headMeshL) headMeshL.material = headEmMat;
-      if (headMeshR) headMeshR.material = headEmMat;
-      carLights.headMat = headEmMat;
-    }
-    // 尾灯共享emissive材质
-    const tailEmMat = (tailMeshL || tailMeshR) ? (tailMeshL || tailMeshR).material.clone() : null;
-    if (tailEmMat) {
-      tailEmMat.emissive = new THREE.Color(0x000000);
-      tailEmMat.emissiveIntensity = 1;
-      if (tailMeshL) tailMeshL.material = tailEmMat;
-      if (tailMeshR) tailMeshR.material = tailEmMat;
-      carLights.tailMat = tailEmMat;
-    }
+    // 尾灯（X:1.26 Y:2.30 Z:3.00）
+    const tXL = -carWidth * 1.26, tXR = carWidth * 1.26;
+    const tY = carHeight * 2.30, tZ = -carLen / 2 * 3.00;
+    const tYlo = tY - 0.06, tYhi = tY + 0.06;
 
     // -- 前大灯 ×4: 上2=远光(High), 下2=近光(Low) --
     function addHeadlight(x, y, z, distance, angle, key) {
@@ -2768,6 +2722,14 @@ loader.load(
     carLights.headLowL.target.position.set(hXL * 0.5, hYlo - 2, hZ + 12);
     carLights.headLowR.target.position.set(hXR * 0.5, hYlo - 2, hZ + 12);
 
+    // 前灯泛光PointLight（让灯罩区域有暖黄色自发光感）
+    carLights.headPointL = new THREE.PointLight(0xfff4d0, 0, 5, 2);
+    carLights.headPointL.position.set(hXL, hY, hZ + 0.05);
+    truckModel.add(carLights.headPointL);
+    carLights.headPointR = new THREE.PointLight(0xfff4d0, 0, 5, 2);
+    carLights.headPointR.position.set(hXR, hY, hZ + 0.05);
+    truckModel.add(carLights.headPointR);
+
     // -- 尾灯 ×4: 下2=常亮(Running), 上2=刹车(Brake) --
     function addTaillight(x, y, z, key) {
       const light = new THREE.PointLight(0xff2200, 0, 6, 2);
@@ -2790,7 +2752,7 @@ loader.load(
     carLights.tailBrakeL = addTaillight(tXL, tYhi, tZ, 'TBL');
     carLights.tailBrakeR = addTaillight(tXR, tYhi, tZ, 'TBR');
 
-    // 灯光材质引用已在上方从灯光mesh设置（headMat/tailMat）
+    // headMat/tailMat保持null（无灯光mesh材质，发光效果由glow球体提供）
 
     carLights.installed = true;
 
@@ -2847,6 +2809,11 @@ function updateCarLights() {
   carLights.headGlows[1].material.opacity += (highGlowTarget - carLights.headGlows[1].material.opacity) * lerpSlow;
   carLights.headGlows[2].material.opacity += (lowGlowTarget - carLights.headGlows[2].material.opacity) * lerpSlow;
   carLights.headGlows[3].material.opacity += (lowGlowTarget - carLights.headGlows[3].material.opacity) * lerpSlow;
+
+  // 前灯泛光PointLight（灯罩自发光效果）
+  const headPointTarget = (lowOn || highOn) ? 2.5 : 0;
+  if (carLights.headPointL) carLights.headPointL.intensity += (headPointTarget - carLights.headPointL.intensity) * lerpSlow;
+  if (carLights.headPointR) carLights.headPointR.intensity += (headPointTarget - carLights.headPointR.intensity) * lerpSlow;
 
   // 前灯材质emissive（blinn4黄色灯壳发光）
   if (carLights.headMat) {
