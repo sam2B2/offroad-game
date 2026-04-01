@@ -6260,8 +6260,8 @@ window.playVideo = function(src) {
   const overlay = document.getElementById('videoOverlay');
   const player = document.getElementById('videoPlayer');
   const decodedSrc = decodeURI(src);
-  // 暂停其他视频的后台下载，全部带宽给当前视频
-  pauseOtherDownloads(decodedSrc);
+  // 暂停所有视频的后台 fetch，全部带宽给 <video> 流式播放
+  pauseAllDownloads();
   // 优先使用预缓存的 objectURL（瞬间播放），否则原始 URL 流式播放（边下边播）
   player.src = videoCache.get(decodedSrc) || decodedSrc;
   overlay.style.display = 'flex';
@@ -6742,12 +6742,15 @@ const videoCache = new Map();       // url → objectURL（已完成缓存）
 const videoControllers = new Map(); // url → AbortController（下载中）
 let _videoPaused = false;           // 是否因播放而暂停了预加载
 
-// 预加载所有缩略图（new Image 触发浏览器缓存）
+// 预加载所有缩略图（返回 Promise，全部完成后 resolve）
 function preloadThumbs() {
-  for (const cp of CHECKPOINTS) {
+  const promises = CHECKPOINTS.map(cp => new Promise(resolve => {
     const img = new Image();
+    img.onload = resolve;
+    img.onerror = resolve; // 失败也 resolve，不阻塞后续
     img.src = cp.thumb;
-  }
+  }));
+  return Promise.all(promises);
 }
 
 // 发起单个视频的后台下载
@@ -6771,13 +6774,11 @@ function preloadVideos() {
   }
 }
 
-// 暂停所有其他视频下载（为当前播放的视频让出带宽）
-function pauseOtherDownloads(currentVideo) {
+// 暂停所有视频的后台 fetch（包括当前视频，避免 fetch 和 <video> 双下载抢带宽）
+function pauseAllDownloads() {
   _videoPaused = true;
   for (const [url, ctrl] of videoControllers) {
-    if (url !== currentVideo) {
-      ctrl.abort();
-    }
+    ctrl.abort();
   }
 }
 
@@ -6790,8 +6791,8 @@ function resumeDownloads() {
 }
 
 // 立即开始预加载（不等 OK 按钮，利用加载界面的等待时间）
-preloadThumbs();
-preloadVideos();
+// 缩略图优先（26MB），全部完成后再启动视频下载（311MB），避免互相抢带宽
+preloadThumbs().then(() => preloadVideos());
 
 // ============================================================
 // LOOP
