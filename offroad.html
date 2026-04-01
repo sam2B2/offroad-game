@@ -25,7 +25,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 #loadTip{font-size:14px;color:#888;}
 #loadOK{padding:12px 48px;font-family:'Noto Sans SC',sans-serif;font-size:16px;font-weight:600;
   color:#fff;background:rgba(68,136,255,0.8);border:1.5px solid rgba(100,170,255,0.5);border-radius:10px;
-  cursor:pointer;outline:none;transition:all 0.2s;backdrop-filter:blur(4px);letter-spacing:1px;}
+  cursor:pointer;outline:none;transition:all 0.2s;backdrop-filter:blur(4px);letter-spacing:1px;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 #loadOK:hover{background:rgba(68,136,255,1);border-color:rgba(130,190,255,0.8);}
 #loadOK:active{transform:scale(0.96);}
 @keyframes loadFadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
@@ -6259,28 +6260,27 @@ window.playVideo = function(src) {
   const overlay = document.getElementById('videoOverlay');
   const player = document.getElementById('videoPlayer');
   const decodedSrc = decodeURI(src);
-  // 优先使用预缓存的 objectURL（瞬间播放），否则 fallback 到原始 URL
+  // 暂停其他视频的后台下载，全部带宽给当前视频
+  pauseOtherDownloads(decodedSrc);
+  // 优先使用预缓存的 objectURL（瞬间播放），否则原始 URL 流式播放（边下边播）
   player.src = videoCache.get(decodedSrc) || decodedSrc;
   overlay.style.display = 'flex';
   player.play();
   gamePausedForVideo = true;
-  // 暂停所有游戏音频
   if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
-  // 停止 WebGL 渲染循环，释放 GPU 给视频解码
   if (_animFrameId !== null) { cancelAnimationFrame(_animFrameId); _animFrameId = null; }
 };
 window.closeVideo = function(e) {
-  // 点击视频本身不关闭（让controls生效）
   if (e && e.target.tagName === 'VIDEO') return;
   const overlay = document.getElementById('videoOverlay');
   const player = document.getElementById('videoPlayer');
   player.pause(); player.src = '';
   overlay.style.display = 'none';
   gamePausedForVideo = false;
-  // 恢复游戏音频
   if (audioCtx && audioCtx.state === 'suspended' && audioResumed) audioCtx.resume();
-  // 恢复游戏循环
   if (_animFrameId === null) { clock.getDelta(); animate(); }
+  // 恢复被暂停的视频后台预加载
+  resumeDownloads();
 };
 
 // 打卡检测+更新
@@ -6690,99 +6690,108 @@ UI.layoutAll(isMobile);
 // ============================================================
 // FULLSCREEN MANAGEMENT — 全屏管理（方案 A + B + C 组合）
 // ============================================================
-{
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const fullscreenBtn = document.getElementById('fullscreenBtn');
+const _isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-  function tryFullscreen() {
-    if (!isMobile) return;
-    const el = document.documentElement;
-    if (isIOS) {
-      // iOS Safari 不支持 Fullscreen API，滚动隐藏地址栏
-      window.scrollTo(0, 1);
-      return;
-    }
-    // Android / 其他浏览器 — Fullscreen API
-    const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-    if (rfs) {
-      rfs.call(el).then(() => {
-        // 尝试锁定横屏
-        if (screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock('landscape').catch(() => {});
-        }
-      }).catch(() => {});
-    }
+function tryFullscreen() {
+  if (!isMobile) return;
+  const el = document.documentElement;
+  if (_isIOS) {
+    window.scrollTo(0, 1);
+    return;
   }
+  // Android / 其他 — Fullscreen API（try-catch 兼容 webkit 前缀）
+  try {
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen(); // 老版本不返回 Promise
+    }
+  } catch(e) {}
+  // 锁定横屏（独立 try-catch，不依赖全屏成功）
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  } catch(e) {}
+}
 
-  // OK 按钮：全屏 + 进入游戏
-  document.getElementById('loadOK').addEventListener('click', () => {
-    tryFullscreen();
-    document.getElementById('loading').classList.add('hidden');
-    // 开始后台预加载视频和缩略图
-    preloadMedia();
-  });
-  // 也处理 touchstart 以确保在手机上触发全屏
-  document.getElementById('loadOK').addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    tryFullscreen();
-    document.getElementById('loading').classList.add('hidden');
-    preloadMedia();
-  }, { passive: false });
+// OK 按钮：只绑定 click（viewport meta 下移动端 click 无 300ms 延迟）
+document.getElementById('loadOK').addEventListener('click', () => {
+  tryFullscreen();
+  document.getElementById('loading').classList.add('hidden');
+});
 
-  // 监听全屏退出 — 显示重新全屏按钮
+// 监听全屏退出 — 显示重新全屏按钮
+{
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
   function onFullscreenChange() {
-    if (!isMobile || isIOS) return;
+    if (!isMobile || _isIOS) return;
     const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
     if (fullscreenBtn) fullscreenBtn.style.display = isFS ? 'none' : 'block';
   }
   document.addEventListener('fullscreenchange', onFullscreenChange);
   document.addEventListener('webkitfullscreenchange', onFullscreenChange);
-
-  // 重新进入全屏按钮
-  if (fullscreenBtn) {
-    fullscreenBtn.addEventListener('click', tryFullscreen);
-    fullscreenBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tryFullscreen(); }, { passive: false });
-  }
+  // 重新进入全屏按钮（只用 click）
+  if (fullscreenBtn) fullscreenBtn.addEventListener('click', tryFullscreen);
 }
 
 // ============================================================
-// MEDIA PRELOAD — 视频/缩略图后台预加载
+// MEDIA PRELOAD — 视频/缩略图智能预加载（带优先级调度）
 // ============================================================
-const videoCache = new Map(); // 'url' → objectURL
-let _mediaPreloadStarted = false;
+const videoCache = new Map();       // url → objectURL（已完成缓存）
+const videoControllers = new Map(); // url → AbortController（下载中）
+let _videoPaused = false;           // 是否因播放而暂停了预加载
 
-function preloadMedia() {
-  if (_mediaPreloadStarted) return;
-  _mediaPreloadStarted = true;
-
-  // 1. 立即预加载所有缩略图（总计~27MB，浏览器自动缓存）
+// 预加载所有缩略图（new Image 触发浏览器缓存）
+function preloadThumbs() {
   for (const cp of CHECKPOINTS) {
     const img = new Image();
     img.src = cp.thumb;
   }
+}
 
-  // 2. 后台低优先级并行下载所有视频到 Blob
-  // 按文件大小排序：小文件先下载，尽快可用
-  const sorted = [...CHECKPOINTS].sort((a, b) => {
-    // 简易启发式：文件名短的通常更小（无法在前端获取真实大小）
-    return a.video.length - b.video.length;
-  });
-  for (const cp of sorted) {
-    const url = cp.video;
-    const opts = {};
-    // fetch priority: 'low' 仅部分浏览器支持，加 try-catch
-    try { opts.priority = 'low'; } catch(e) {}
-    fetch(url, opts)
-      .then(r => {
-        if (!r.ok) throw new Error(r.status);
-        return r.blob();
-      })
-      .then(blob => {
-        videoCache.set(url, URL.createObjectURL(blob));
-      })
-      .catch(() => {}); // 静默失败，播放时 fallback 到原始 URL
+// 发起单个视频的后台下载
+function _fetchVideo(url) {
+  if (videoCache.has(url) || videoControllers.has(url)) return; // 已缓存或下载中
+  const ctrl = new AbortController();
+  videoControllers.set(url, ctrl);
+  fetch(url, { signal: ctrl.signal })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(blob => {
+      videoCache.set(url, URL.createObjectURL(blob));
+      videoControllers.delete(url);
+    })
+    .catch(() => { videoControllers.delete(url); }); // abort 或网络错误
+}
+
+// 启动所有视频的后台预加载
+function preloadVideos() {
+  for (const cp of CHECKPOINTS) {
+    _fetchVideo(cp.video);
   }
 }
+
+// 暂停所有其他视频下载（为当前播放的视频让出带宽）
+function pauseOtherDownloads(currentVideo) {
+  _videoPaused = true;
+  for (const [url, ctrl] of videoControllers) {
+    if (url !== currentVideo) {
+      ctrl.abort();
+    }
+  }
+}
+
+// 恢复被暂停的视频预加载
+function resumeDownloads() {
+  _videoPaused = false;
+  for (const cp of CHECKPOINTS) {
+    _fetchVideo(cp.video); // 内部会跳过已缓存和下载中的
+  }
+}
+
+// 立即开始预加载（不等 OK 按钮，利用加载界面的等待时间）
+preloadThumbs();
+preloadVideos();
 
 // ============================================================
 // LOOP
