@@ -2,14 +2,38 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
 <title>越野驾驶</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 #gameCanvas{display:block;width:100%;height:100%;touch-action:none;}
-#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;font-family:'Noto Sans SC',sans-serif;font-size:16px;color:#666;z-index:100;}
-#loading.hidden{opacity:0;pointer-events:none;transition:opacity 0.4s;}
+#loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#111;font-family:'Noto Sans SC',sans-serif;color:#ccc;z-index:100;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+#loading.hidden{opacity:0;pointer-events:none;transition:opacity 0.5s;}
+#loadTitle{font-size:28px;font-weight:700;color:#fff;letter-spacing:2px;margin-bottom:24px;text-shadow:0 2px 12px rgba(255,255,255,0.15);}
+#loadBarWrap{width:220px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin-bottom:12px;}
+#loadBarFill{width:0%;height:100%;background:linear-gradient(90deg,#4488ff,#44ddff);border-radius:2px;transition:width 0.3s;}
+#loadStatus{font-size:13px;color:#666;margin-bottom:0;transition:opacity 0.3s;}
+#loadReady{display:none;flex-direction:column;align-items:center;gap:16px;animation:loadFadeIn 0.5s ease;}
+#loadTip{font-size:14px;color:#888;}
+#loadOK{padding:12px 48px;font-family:'Noto Sans SC',sans-serif;font-size:16px;font-weight:600;
+  color:#fff;background:rgba(68,136,255,0.8);border:1.5px solid rgba(100,170,255,0.5);border-radius:10px;
+  cursor:pointer;outline:none;transition:all 0.2s;backdrop-filter:blur(4px);letter-spacing:1px;}
+#loadOK:hover{background:rgba(68,136,255,1);border-color:rgba(130,190,255,0.8);}
+#loadOK:active{transform:scale(0.96);}
+@keyframes loadFadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+/* 全屏提示按钮（游戏内，退出全屏后显示） */
+#fullscreenBtn{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:90;
+  padding:6px 16px;font-family:'Noto Sans SC',sans-serif;font-size:12px;color:rgba(255,255,255,0.7);
+  background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);border-radius:6px;
+  cursor:pointer;backdrop-filter:blur(4px);display:none;pointer-events:auto;transition:opacity 0.3s;}
 #hud{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',monospace;font-size:13px;color:#999;pointer-events:none;text-align:center;line-height:1.8;}
 #hud kbd{display:inline-block;padding:1px 6px;background:#f0f0f0;border:1px solid #ddd;border-radius:3px;font-family:monospace;font-size:12px;color:#555;}
 #gauges{position:fixed;bottom:30px;right:30px;pointer-events:none;display:flex;gap:0px;align-items:flex-end;}
@@ -125,7 +149,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 <div id="fpsPanel" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:999;
   font-family:monospace;font-size:13px;color:#0f0;background:rgba(0,0,0,0.7);padding:4px 12px;
   border-radius:6px;pointer-events:none;white-space:pre;"></div>
-<div id="loading">加载模型中...</div>
+<div id="loading">
+  <div id="loadTitle">越野驾驶</div>
+  <div id="loadBarWrap"><div id="loadBarFill"></div></div>
+  <div id="loadStatus">加载中...</div>
+  <div id="loadReady">
+    <div id="loadTip">建议全屏体验</div>
+    <button id="loadOK">OK</button>
+  </div>
+</div>
+<div id="fullscreenBtn">点击全屏</div>
 <div id="hud">
   <kbd>W</kbd>/<kbd>&uarr;</kbd> 前进 &nbsp;
   <kbd>S</kbd>/<kbd>&darr;</kbd> 倒车 &nbsp;
@@ -2961,19 +2994,42 @@ function loadVehicle(vehicleId, onComplete) {
     carLights.installed = true;
     modelReady = true;
     initAudio();
-    document.getElementById('loading').classList.add('hidden');
+    // 初次加载：显示开始界面（进度条隐藏，OK按钮出现）
+    // 切换车辆时：直接隐藏loading
+    const loadReady = document.getElementById('loadReady');
+    if (loadReady && !loadReady._wasShown) {
+      loadReady._wasShown = true;
+      document.getElementById('loadBarWrap').style.display = 'none';
+      document.getElementById('loadStatus').style.display = 'none';
+      loadReady.style.display = 'flex';
+    } else {
+      document.getElementById('loading').classList.add('hidden');
+    }
     if (onComplete) onComplete();
-  } catch(e) { console.error('[loadVehicle] INIT ERROR:', e); document.getElementById('loading').textContent = '初始化失败: ' + e.message; }
+  } catch(e) { console.error('[loadVehicle] INIT ERROR:', e); document.getElementById('loadStatus').textContent = '初始化失败: ' + e.message; }
   }, (progress) => {
-    if (progress.total) console.log('[loadVehicle] Progress:', (progress.loaded/progress.total*100).toFixed(0) + '%');
-  }, (err) => { console.error('[loadVehicle] LOAD ERROR:', err); document.getElementById('loading').textContent = '加载失败: ' + err.message; });
+    if (progress.total) {
+      const pct = Math.round(progress.loaded / progress.total * 100);
+      const fill = document.getElementById('loadBarFill');
+      const status = document.getElementById('loadStatus');
+      if (fill) fill.style.width = pct + '%';
+      if (status) status.textContent = '加载中... ' + pct + '%';
+    }
+  }, (err) => { console.error('[loadVehicle] LOAD ERROR:', err); document.getElementById('loadStatus').textContent = '加载失败: ' + err.message; });
 }
 
 // ---- 切换车辆 ----
 function switchVehicle(vehicleId) {
   if (vehicleId === currentVehicleId && modelReady) return;
-  document.getElementById('loading').classList.remove('hidden');
-  document.getElementById('loading').textContent = '切换车辆中...';
+  const loadEl = document.getElementById('loading');
+  loadEl.classList.remove('hidden');
+  // 切换车辆时只显示状态文字，隐藏开始界面元素
+  const loadStatus = document.getElementById('loadStatus');
+  if (loadStatus) { loadStatus.textContent = '切换车辆中...'; loadStatus.style.display = ''; }
+  const loadReady = document.getElementById('loadReady');
+  if (loadReady) loadReady.style.display = 'none';
+  const loadBarWrap = document.getElementById('loadBarWrap');
+  if (loadBarWrap) loadBarWrap.style.display = 'none';
   disposeCurrentVehicle();
   // 重置车辆物理状态
   car.speed = 0; car.heading = 0; car.gear = 0; car.rpm = 800;
@@ -6202,7 +6258,9 @@ let _animFrameId = null;
 window.playVideo = function(src) {
   const overlay = document.getElementById('videoOverlay');
   const player = document.getElementById('videoPlayer');
-  player.src = decodeURI(src);
+  const decodedSrc = decodeURI(src);
+  // 优先使用预缓存的 objectURL（瞬间播放），否则 fallback 到原始 URL
+  player.src = videoCache.get(decodedSrc) || decodedSrc;
   overlay.style.display = 'flex';
   player.play();
   gamePausedForVideo = true;
@@ -6628,6 +6686,103 @@ UI.layoutAll = function(mobile) {
 };
 // 初始化布局
 UI.layoutAll(isMobile);
+
+// ============================================================
+// FULLSCREEN MANAGEMENT — 全屏管理（方案 A + B + C 组合）
+// ============================================================
+{
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+  function tryFullscreen() {
+    if (!isMobile) return;
+    const el = document.documentElement;
+    if (isIOS) {
+      // iOS Safari 不支持 Fullscreen API，滚动隐藏地址栏
+      window.scrollTo(0, 1);
+      return;
+    }
+    // Android / 其他浏览器 — Fullscreen API
+    const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (rfs) {
+      rfs.call(el).then(() => {
+        // 尝试锁定横屏
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  }
+
+  // OK 按钮：全屏 + 进入游戏
+  document.getElementById('loadOK').addEventListener('click', () => {
+    tryFullscreen();
+    document.getElementById('loading').classList.add('hidden');
+    // 开始后台预加载视频和缩略图
+    preloadMedia();
+  });
+  // 也处理 touchstart 以确保在手机上触发全屏
+  document.getElementById('loadOK').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    tryFullscreen();
+    document.getElementById('loading').classList.add('hidden');
+    preloadMedia();
+  }, { passive: false });
+
+  // 监听全屏退出 — 显示重新全屏按钮
+  function onFullscreenChange() {
+    if (!isMobile || isIOS) return;
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (fullscreenBtn) fullscreenBtn.style.display = isFS ? 'none' : 'block';
+  }
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
+  // 重新进入全屏按钮
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', tryFullscreen);
+    fullscreenBtn.addEventListener('touchstart', (e) => { e.preventDefault(); tryFullscreen(); }, { passive: false });
+  }
+}
+
+// ============================================================
+// MEDIA PRELOAD — 视频/缩略图后台预加载
+// ============================================================
+const videoCache = new Map(); // 'url' → objectURL
+let _mediaPreloadStarted = false;
+
+function preloadMedia() {
+  if (_mediaPreloadStarted) return;
+  _mediaPreloadStarted = true;
+
+  // 1. 立即预加载所有缩略图（总计~27MB，浏览器自动缓存）
+  for (const cp of CHECKPOINTS) {
+    const img = new Image();
+    img.src = cp.thumb;
+  }
+
+  // 2. 后台低优先级并行下载所有视频到 Blob
+  // 按文件大小排序：小文件先下载，尽快可用
+  const sorted = [...CHECKPOINTS].sort((a, b) => {
+    // 简易启发式：文件名短的通常更小（无法在前端获取真实大小）
+    return a.video.length - b.video.length;
+  });
+  for (const cp of sorted) {
+    const url = cp.video;
+    const opts = {};
+    // fetch priority: 'low' 仅部分浏览器支持，加 try-catch
+    try { opts.priority = 'low'; } catch(e) {}
+    fetch(url, opts)
+      .then(r => {
+        if (!r.ok) throw new Error(r.status);
+        return r.blob();
+      })
+      .then(blob => {
+        videoCache.set(url, URL.createObjectURL(blob));
+      })
+      .catch(() => {}); // 静默失败，播放时 fallback 到原始 URL
+  }
+}
 
 // ============================================================
 // LOOP
