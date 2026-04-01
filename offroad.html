@@ -2,12 +2,12 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>越野驾驶 - 调试</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>越野驾驶</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
-#gameCanvas{display:block;width:100%;height:100%;}
+html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+#gameCanvas{display:block;width:100%;height:100%;touch-action:none;}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;font-family:'Noto Sans SC',sans-serif;font-size:16px;color:#666;z-index:100;}
 #loading.hidden{opacity:0;pointer-events:none;transition:opacity 0.4s;}
 #hud{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',monospace;font-size:13px;color:#999;pointer-events:none;text-align:center;line-height:1.8;}
@@ -80,6 +80,43 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
   font-size:16px;color:#ffd700;text-shadow:0 1px 3px rgba(0,0,0,0.6);pointer-events:none;z-index:20;}
 #coinBar .coin-icon{width:48px;height:48px;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));}
 #coinBar .coin-count{font-weight:bold;}
+
+/* ===== MOBILE TOUCH CONTROLS ===== */
+#mobileControls{display:none;} /* 默认隐藏，JS根据isMobile切换 */
+
+/* 虚拟摇杆 */
+#joystickZone{position:fixed;left:20px;bottom:30px;width:150px;height:150px;z-index:60;touch-action:none;}
+#joystickBase{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:130px;height:130px;
+  border-radius:50%;background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.15);
+  backdrop-filter:blur(2px);}
+#joystickThumb{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:56px;height:56px;
+  border-radius:50%;background:rgba(255,255,255,0.25);border:2px solid rgba(255,255,255,0.35);
+  transition:none;pointer-events:none;}
+
+/* 右侧按钮组 */
+#mobileBtns{position:fixed;right:16px;bottom:30px;display:flex;flex-direction:column;gap:10px;
+  align-items:center;z-index:60;touch-action:none;}
+.m-btn{width:60px;height:60px;border-radius:50%;border:2px solid rgba(255,255,255,0.25);
+  background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;
+  font-family:'Noto Sans SC',sans-serif;font-size:11px;font-weight:600;color:rgba(255,255,255,0.7);
+  touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;
+  transition:background 0.1s,border-color 0.1s;}
+.m-btn.active{background:rgba(255,255,255,0.2);border-color:rgba(255,255,255,0.5);}
+.m-btn .m-icon{font-size:22px;line-height:1;}
+.m-btn .m-label{font-size:9px;margin-top:2px;opacity:0.7;}
+
+/* 手刹按钮特殊样式（更大） */
+#mBtnBrake{width:72px;height:72px;border-color:rgba(255,80,80,0.4);}
+#mBtnBrake.active{background:rgba(255,60,60,0.3);border-color:rgba(255,80,80,0.7);}
+
+/* 右侧次要按钮（重置/换车）放在上方 */
+#mobileBtnsSecondary{position:fixed;right:20px;top:50%;transform:translateY(-50%);display:flex;
+  flex-direction:column;gap:8px;z-index:60;touch-action:none;}
+.m-btn-sm{width:44px;height:44px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);
+  background:rgba(0,0,0,0.3);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;
+  font-family:'Noto Sans SC',sans-serif;font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);
+  touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;}
+.m-btn-sm.active{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.4);color:rgba(255,255,255,0.8);}
 </style>
 </head>
 <body>
@@ -145,6 +182,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
   <div class="inv-slot" id="invSlot1"><span class="inv-icon"></span></div>
   <div class="inv-slot" id="invSlot2"><span class="inv-icon"></span></div>
   <div class="inv-slot" id="invSlot3"><span class="inv-icon"></span></div>
+</div>
+
+<!-- ===== 手机端虚拟控件 ===== -->
+<div id="mobileControls">
+  <!-- 左侧虚拟摇杆 -->
+  <div id="joystickZone">
+    <div id="joystickBase">
+      <div id="joystickThumb"></div>
+    </div>
+  </div>
+  <!-- 右侧主要按钮（手刹+救援+差速锁） -->
+  <div id="mobileBtns">
+    <div class="m-btn" id="mBtnLock"><div class="m-icon">🔒</div><div class="m-label">差速锁</div></div>
+    <div class="m-btn" id="mBtnRescue"><div class="m-icon">🪝</div><div class="m-label">救援H</div></div>
+    <div class="m-btn" id="mBtnBrake"><div class="m-icon">🅿️</div><div class="m-label">手刹</div></div>
+  </div>
+  <!-- 右侧次要按钮（重置+换车） -->
+  <div id="mobileBtnsSecondary">
+    <div class="m-btn-sm" id="mBtnReset">R</div>
+    <div class="m-btn-sm" id="mBtnSwitch">换车</div>
+  </div>
 </div>
 
 <script type="importmap">
@@ -2227,8 +2285,12 @@ function updatePhysics(dt) {
   const isFlippedInput = car.isInFlip;
 
   if (!isFlippedInput) {
-    car.throttle = (keys['ArrowUp'] || keys['KeyW']) ? 1 : 0;
-    car.reverse = (keys['ArrowDown'] || keys['KeyS']) ? 1 : 0;
+    // 支持模拟量输入（手机摇杆）和数字输入（键盘）
+    const tc = UI.touchControls;
+    const joyThrottle = tc.enabled ? tc._getThrottle() : 0;
+    const joyReverse = tc.enabled ? tc._getReverse() : 0;
+    car.throttle = Math.max((keys['ArrowUp'] || keys['KeyW']) ? 1 : 0, joyThrottle);
+    car.reverse = Math.max((keys['ArrowDown'] || keys['KeyS']) ? 1 : 0, joyReverse);
     car.handbrake = !!keys['Space'];
   } else {
     car.throttle = 0;
@@ -2241,6 +2303,12 @@ function updatePhysics(dt) {
   if (!isFlippedInput) {
     if (keys['ArrowLeft'] || keys['KeyA']) steerTarget = 1;
     if (keys['ArrowRight'] || keys['KeyD']) steerTarget = -1;
+    // 手机摇杆模拟量转向（覆盖键盘）
+    const tc = UI.touchControls;
+    if (tc.enabled && tc.joyActive) {
+      const joySteer = tc._getSteer();
+      if (Math.abs(joySteer) > 0.01) steerTarget = joySteer;
+    }
   }
 
   const steerLerp = 15 * dt;
@@ -4268,9 +4336,15 @@ UI.inventory = {
   layout(mobile) {
     const w = this.els.wrap;
     if (mobile) {
-      w.style.transform = 'translateY(-50%) scale(0.8)'; w.style.transformOrigin = 'right center';
+      // 手机端：物品栏移到左上角小地图下方，水平排列
+      w.style.position = 'fixed';
+      w.style.right = 'auto'; w.style.top = 'auto'; w.style.left = '16px'; w.style.bottom = '190px';
+      w.style.transform = 'none'; w.style.transformOrigin = '';
+      w.style.flexDirection = 'row'; w.style.gap = '6px';
     } else {
+      w.style.position = ''; w.style.right = ''; w.style.top = ''; w.style.left = ''; w.style.bottom = '';
       w.style.transform = 'translateY(-50%)'; w.style.transformOrigin = '';
+      w.style.flexDirection = ''; w.style.gap = '';
     }
   },
 };
@@ -4848,7 +4922,15 @@ UI.coinBar = {
       if (el) { el.style.textShadow = '0 0 14px #ffd700,0 0 6px #ff9900'; setTimeout(() => { if(el) el.style.textShadow = ''; }, 500); }
     }
   },
-  layout(mobile) {},
+  layout(mobile) {
+    const b = this.els.bar;
+    if (!b) return;
+    if (mobile) {
+      b.style.right = '16px'; b.style.top = '12px'; b.style.fontSize = '14px';
+    } else {
+      b.style.right = ''; b.style.top = ''; b.style.fontSize = '';
+    }
+  },
 };
 UI.coinBar.init();
 
@@ -6291,6 +6373,227 @@ function unlockCheckpoint(cp) {
 }
 
 // ============================================================
+// ============================================================
+// UI MODULE: touchControls — 手机端虚拟摇杆+按钮+视角触控
+// ============================================================
+UI.touchControls = {
+  enabled: false,
+  // 虚拟摇杆状态
+  joyActive: false,
+  joyTouchId: null,
+  joyCenterX: 0, joyCenterY: 0,
+  joyX: 0, joyY: 0, // -1~1 归一化
+  JOY_RADIUS: 50,
+  // 手刹状态
+  brakeActive: false,
+  // 视角触控状态
+  camTouchId: null,
+  camLastX: 0, camLastY: 0,
+  // 双指缩放
+  pinchDist: 0,
+  pinchActive: false,
+
+  init() {
+    this.els = {
+      wrap: document.getElementById('mobileControls'),
+      joyZone: document.getElementById('joystickZone'),
+      joyBase: document.getElementById('joystickBase'),
+      joyThumb: document.getElementById('joystickThumb'),
+      btnBrake: document.getElementById('mBtnBrake'),
+      btnRescue: document.getElementById('mBtnRescue'),
+      btnLock: document.getElementById('mBtnLock'),
+      btnReset: document.getElementById('mBtnReset'),
+      btnSwitch: document.getElementById('mBtnSwitch'),
+    };
+    if (!this.els.wrap) return;
+
+    // ---- 虚拟摇杆 touch 事件 ----
+    const self = this;
+    this.els.joyZone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (self.joyActive) return;
+      const t = e.changedTouches[0];
+      self.joyTouchId = t.identifier;
+      self.joyActive = true;
+      const rect = self.els.joyBase.getBoundingClientRect();
+      self.joyCenterX = rect.left + rect.width / 2;
+      self.joyCenterY = rect.top + rect.height / 2;
+      self._updateJoy(t.clientX, t.clientY);
+      resumeAudio();
+    }, { passive: false });
+
+    this.els.joyZone.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === self.joyTouchId) {
+          self._updateJoy(t.clientX, t.clientY);
+        }
+      }
+    }, { passive: false });
+
+    const joyEnd = (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === self.joyTouchId) {
+          self.joyActive = false; self.joyTouchId = null;
+          self.joyX = 0; self.joyY = 0;
+          self.els.joyThumb.style.transform = 'translate(-50%,-50%)';
+          self._applyJoyToKeys();
+        }
+      }
+    };
+    this.els.joyZone.addEventListener('touchend', joyEnd);
+    this.els.joyZone.addEventListener('touchcancel', joyEnd);
+
+    // ---- 右侧按钮 ----
+    // 手刹
+    this._bindHold(this.els.btnBrake, () => { self.brakeActive = true; keys['Space'] = true; self.els.btnBrake.classList.add('active'); },
+      () => { self.brakeActive = false; keys['Space'] = false; self.els.btnBrake.classList.remove('active'); });
+    // 救援
+    this._bindTap(this.els.btnRescue, () => { keys['KeyH'] = true; setTimeout(() => { keys['KeyH'] = false; }, 100); });
+    // 差速锁
+    this._bindTap(this.els.btnLock, () => { toggleDiffLock(); });
+    // 重置
+    this._bindTap(this.els.btnReset, () => { keys['KeyR'] = true; setTimeout(() => { keys['KeyR'] = false; }, 100); });
+    // 换车
+    this._bindTap(this.els.btnSwitch, () => {
+      const ids = Object.keys(VEHICLES);
+      const nextIdx = (ids.indexOf(currentVehicleId) + 1) % ids.length;
+      switchVehicle(ids[nextIdx]);
+    });
+
+    // ---- 视角触控（canvas 上非控件区域） ----
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        // 双指开始缩放
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        self.pinchDist = Math.sqrt(dx * dx + dy * dy);
+        self.pinchActive = true;
+        e.preventDefault(); return;
+      }
+      if (e.touches.length === 1 && self.camTouchId === null) {
+        // 单指开始拖拽视角（不在控件区域的touch）
+        const t = e.touches[0];
+        // 判断是否在左半屏（摇杆区域）或右下按钮区域，是的话不处理
+        if (t.clientX < 200 && t.clientY > window.innerHeight - 200) return;
+        if (t.clientX > window.innerWidth - 100) return;
+        self.camTouchId = t.identifier;
+        self.camLastX = t.clientX; self.camLastY = t.clientY;
+        chaseCam.returnTimer = 0;
+        resumeAudio();
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (self.pinchActive && e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const delta = dist - self.pinchDist;
+        chaseCam.distance -= delta * 0.05;
+        chaseCam.distance = Math.max(8, Math.min(40, chaseCam.distance));
+        self.pinchDist = dist;
+        e.preventDefault(); return;
+      }
+      for (const t of e.changedTouches) {
+        if (t.identifier === self.camTouchId) {
+          const dx = t.clientX - self.camLastX;
+          const dy = t.clientY - self.camLastY;
+          chaseCam.yawOffset -= dx * 0.006;
+          chaseCam.pitchOffset -= dy * 0.004;
+          chaseCam.pitchOffset = Math.max(-0.3, Math.min(0.6, chaseCam.pitchOffset));
+          self.camLastX = t.clientX; self.camLastY = t.clientY;
+          e.preventDefault();
+        }
+      }
+    }, { passive: false });
+
+    const camEnd = (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === self.camTouchId) {
+          self.camTouchId = null;
+          chaseCam.returnTimer = 0;
+        }
+      }
+      if (e.touches.length < 2) self.pinchActive = false;
+    };
+    canvas.addEventListener('touchend', camEnd);
+    canvas.addEventListener('touchcancel', camEnd);
+  },
+
+  _updateJoy(tx, ty) {
+    let dx = tx - this.joyCenterX;
+    let dy = ty - this.joyCenterY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxR = this.JOY_RADIUS;
+    if (dist > maxR) { dx = dx / dist * maxR; dy = dy / dist * maxR; }
+    this.joyX = dx / maxR; // -1 (left) to 1 (right)
+    this.joyY = -dy / maxR; // -1 (down/back) to 1 (up/forward)  注意Y轴反转
+    // 移动摇杆指示器
+    this.els.joyThumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    this._applyJoyToKeys();
+  },
+
+  _applyJoyToKeys() {
+    // 将摇杆位置映射到键盘状态（带死区）
+    const DEAD = 0.2;
+    keys['KeyW'] = this.joyY > DEAD;
+    keys['ArrowUp'] = false;
+    keys['KeyS'] = this.joyY < -DEAD;
+    keys['ArrowDown'] = false;
+    keys['KeyA'] = this.joyX < -DEAD;
+    keys['ArrowLeft'] = false;
+    keys['KeyD'] = this.joyX > DEAD;
+    keys['ArrowRight'] = false;
+  },
+
+  _bindHold(el, onDown, onUp) {
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); onDown(); resumeAudio(); }, { passive: false });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); onUp(); });
+    el.addEventListener('touchcancel', (e) => { onUp(); });
+  },
+
+  _bindTap(el, fn) {
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => {
+      e.preventDefault(); el.classList.add('active');
+      resumeAudio(); fn();
+      setTimeout(() => el.classList.remove('active'), 150);
+    }, { passive: false });
+  },
+
+  show() {
+    if (this.els.wrap) this.els.wrap.style.display = 'block';
+    this.enabled = true;
+  },
+  hide() {
+    if (this.els.wrap) this.els.wrap.style.display = 'none';
+    this.enabled = false;
+  },
+  layout(mobile) {
+    if (mobile) this.show(); else this.hide();
+  },
+};
+
+// ---- 给物理系统提供渐进式转向输入（摇杆模拟量 vs 键盘0/1） ----
+UI.touchControls._getSteer = function() {
+  if (!this.joyActive) return 0;
+  const DEAD = 0.2;
+  if (Math.abs(this.joyX) < DEAD) return 0;
+  return -this.joyX; // 左为正转向
+};
+UI.touchControls._getThrottle = function() {
+  if (!this.joyActive) return 0;
+  const DEAD = 0.2;
+  return this.joyY > DEAD ? Math.min(1, (this.joyY - DEAD) / (1 - DEAD)) : 0;
+};
+UI.touchControls._getReverse = function() {
+  if (!this.joyActive) return 0;
+  const DEAD = 0.2;
+  return this.joyY < -DEAD ? Math.min(1, (-this.joyY - DEAD) / (1 - DEAD)) : 0;
+};
+
 // UI MODULE: hud — 键盘操作提示（桌面端显示，手机端隐藏）
 // ============================================================
 UI.hud = {
@@ -6304,6 +6607,7 @@ UI.hud = {
   },
 };
 UI.hud.init();
+UI.touchControls.init();
 
 // ============================================================
 // UI.layoutAll — 根据设备类型统一调整所有UI布局
@@ -6318,6 +6622,9 @@ UI.layoutAll = function(mobile) {
   UI.coinBar.layout(mobile);
   UI.achieveBar.layout(mobile);
   UI.hud.layout(mobile);
+  UI.touchControls.layout(mobile);
+  // 手机端隐藏桌面端差速锁按钮（已在虚拟按钮中）
+  if (UI.diffLock.els.controls) UI.diffLock.els.controls.style.display = mobile ? 'none' : '';
 };
 // 初始化布局
 UI.layoutAll(isMobile);
