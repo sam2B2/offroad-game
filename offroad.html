@@ -6257,15 +6257,38 @@ updateAchieveBarUI();
 let gamePausedForVideo = false;
 let _animFrameId = null;
 window.playVideo = function(src) {
-  const overlay = document.getElementById('videoOverlay');
-  const player = document.getElementById('videoPlayer');
   const decodedSrc = decodeURI(src);
-  // 暂停所有视频的后台 fetch，全部带宽给 <video> 流式播放
-  pauseAllDownloads();
-  // 优先使用预缓存的 objectURL（瞬间播放），否则原始 URL 流式播放（边下边播）
-  player.src = videoCache.get(decodedSrc) || decodedSrc;
-  overlay.style.display = 'flex';
-  player.play();
+  const slot = videoSlots.get(decodedSrc);
+  const overlay = document.getElementById('videoOverlay');
+  const defaultPlayer = document.getElementById('videoPlayer');
+
+  // 暂停其他视频的后台下载，全部带宽给当前视频
+  pauseOtherPreloads(decodedSrc);
+  _currentVideoUrl = decodedSrc;
+
+  if (slot) {
+    // 使用预创建的 <video> 标签（保留已缓冲数据 + 续播位置）
+    defaultPlayer.style.display = 'none';
+    slot.video.controls = true;
+    slot.video.playsInline = true;
+    slot.video.style.display = '';
+    slot.video.style.maxWidth = '85%';
+    slot.video.style.maxHeight = '80%';
+    slot.video.style.borderRadius = '8px';
+    slot.video.style.boxShadow = '0 4px 30px rgba(0,0,0,0.5)';
+    overlay.appendChild(slot.video);
+    // 续播：从上次关闭的位置开始
+    if (slot.lastTime > 0) slot.video.currentTime = slot.lastTime;
+    overlay.style.display = 'flex';
+    slot.video.play().catch(() => {});
+  } else {
+    // fallback：videoSlots 还没初始化时，用默认 player
+    defaultPlayer.style.display = '';
+    defaultPlayer.src = decodedSrc;
+    overlay.style.display = 'flex';
+    defaultPlayer.play().catch(() => {});
+  }
+
   gamePausedForVideo = true;
   if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
   if (_animFrameId !== null) { cancelAnimationFrame(_animFrameId); _animFrameId = null; }
@@ -6273,14 +6296,29 @@ window.playVideo = function(src) {
 window.closeVideo = function(e) {
   if (e && e.target.tagName === 'VIDEO') return;
   const overlay = document.getElementById('videoOverlay');
-  const player = document.getElementById('videoPlayer');
-  player.pause(); player.src = '';
+
+  // 保存播放位置
+  const slot = _currentVideoUrl ? videoSlots.get(_currentVideoUrl) : null;
+  if (slot) {
+    // 播放完毕 → 重置位置（下次从头播放）；未播完 → 记录位置（下次续播）
+    slot.lastTime = slot.video.ended ? 0 : slot.video.currentTime;
+    slot.video.pause();
+    slot.video.style.display = 'none';
+    slot.video.controls = false;
+  } else {
+    // fallback player
+    const defaultPlayer = document.getElementById('videoPlayer');
+    defaultPlayer.pause(); defaultPlayer.src = '';
+  }
+
   overlay.style.display = 'none';
   gamePausedForVideo = false;
+  _currentVideoUrl = null;
+
   if (audioCtx && audioCtx.state === 'suspended' && audioResumed) audioCtx.resume();
   if (_animFrameId === null) { clock.getDelta(); animate(); }
-  // 恢复被暂停的视频后台预加载
-  resumeDownloads();
+  // 恢复所有视频的后台预加载
+  resumeAllPreloads();
 };
 
 // 打卡检测+更新
@@ -6738,61 +6776,53 @@ document.getElementById('loadOK').addEventListener('click', () => {
 // ============================================================
 // MEDIA PRELOAD — 视频/缩略图智能预加载（带优先级调度）
 // ============================================================
-const videoCache = new Map();       // url → objectURL（已完成缓存）
-const videoControllers = new Map(); // url → AbortController（下载中）
-let _videoPaused = false;           // 是否因播放而暂停了预加载
-
 // 预加载所有缩略图（返回 Promise，全部完成后 resolve）
 function preloadThumbs() {
   const promises = CHECKPOINTS.map(cp => new Promise(resolve => {
     const img = new Image();
     img.onload = resolve;
-    img.onerror = resolve; // 失败也 resolve，不阻塞后续
+    img.onerror = resolve;
     img.src = cp.thumb;
   }));
   return Promise.all(promises);
 }
 
-// 发起单个视频的后台下载
-function _fetchVideo(url) {
-  if (videoCache.has(url) || videoControllers.has(url)) return; // 已缓存或下载中
-  const ctrl = new AbortController();
-  videoControllers.set(url, ctrl);
-  fetch(url, { signal: ctrl.signal })
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
-    .then(blob => {
-      videoCache.set(url, URL.createObjectURL(blob));
-      videoControllers.delete(url);
-    })
-    .catch(() => { videoControllers.delete(url); }); // abort 或网络错误
-}
+// ============================================================
+// VIDEO SLOTS — 基于 <video> 标签的预加载 + 续播系统
+// ============================================================
+const videoSlots = new Map(); // url → { video: HTMLVideoElement, lastTime: number }
+let _currentVideoUrl = null;  // 当前正在播放的视频 URL
 
-// 启动所有视频的后台预加载
-function preloadVideos() {
+// 为每个视频创建一个隐藏的 <video preload="auto">，浏览器后台自动下载
+function initVideoSlots() {
   for (const cp of CHECKPOINTS) {
-    _fetchVideo(cp.video);
+    const v = document.createElement('video');
+    v.preload = 'auto';
+    v.src = cp.video;
+    v.playsInline = true;
+    v.style.display = 'none';
+    document.body.appendChild(v);
+    videoSlots.set(cp.video, { video: v, lastTime: 0 });
   }
 }
 
-// 暂停所有视频的后台 fetch（包括当前视频，避免 fetch 和 <video> 双下载抢带宽）
-function pauseAllDownloads() {
-  _videoPaused = true;
-  for (const [url, ctrl] of videoControllers) {
-    ctrl.abort();
+// 暂停其他视频的后台下载（preload='none'），全部带宽给当前播放
+function pauseOtherPreloads(currentUrl) {
+  for (const [url, slot] of videoSlots) {
+    if (url !== currentUrl) slot.video.preload = 'none';
   }
 }
 
-// 恢复被暂停的视频预加载
-function resumeDownloads() {
-  _videoPaused = false;
-  for (const cp of CHECKPOINTS) {
-    _fetchVideo(cp.video); // 内部会跳过已缓存和下载中的
+// 恢复所有视频的后台下载
+function resumeAllPreloads() {
+  for (const [url, slot] of videoSlots) {
+    slot.video.preload = 'auto';
   }
 }
 
-// 立即开始预加载（不等 OK 按钮，利用加载界面的等待时间）
-// 缩略图优先（26MB），全部完成后再启动视频下载（311MB），避免互相抢带宽
-preloadThumbs().then(() => preloadVideos());
+// 立即开始预加载
+// 缩略图优先（26MB），全部完成后再创建 video slots 启动视频预加载
+preloadThumbs().then(() => initVideoSlots());
 
 // ============================================================
 // LOOP
