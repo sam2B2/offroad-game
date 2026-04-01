@@ -130,6 +130,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;}
 <div id="invTooltip"></div>
 <div id="rescueMsg"></div>
 
+
+
 <div id="diffLockTip" style="display:none;position:fixed;top:28%;left:50%;transform:translateX(-50%);
   font-family:'Noto Sans SC',sans-serif;font-size:16px;color:#fff;background:rgba(255,136,0,0.85);
   padding:10px 24px;border-radius:10px;pointer-events:none;z-index:50;white-space:nowrap;
@@ -1996,12 +1998,13 @@ const car = {
   diffLock: false,
 };
 
-const MAX_SPEED = 30;    // m/s ≈ 108 km/h
-const MAX_REVERSE = 12;   // 倒车最高 ~43 km/h（2个倒挡）
-const DRAG = 0.35;
-const ROLL_RESIST = 4;
-const MASS = 3500;       // 真实质量（用于roll/碰撞物理，重 → 稳）
-const DRIVE_MASS = 1400; // 有效驱动质量（让加速更灵敏）
+let MAX_SPEED = 30;      // m/s ≈ 108 km/h（可被车辆配置覆盖）
+let MAX_REVERSE = 12;    // 倒车最高 ~43 km/h
+let DRAG = 0.35;
+let ROLL_RESIST = 4;
+let MASS = 3500;         // 真实质量（可被车辆配置覆盖）
+let DRIVE_MASS = 1400;   // 有效驱动质量
+let FUEL_MAX = 300;      // 满油秒数（可被车辆配置覆盖）
 const GRAVITY = 9.81;
 
 // ---- 6-speed auto transmission ----
@@ -2012,7 +2015,7 @@ const RPM_DOWNSHIFT = 900;   // 降到900转降挡
 const GEAR_RATIOS = [0, 4.0, 2.8, 2.0, 1.4, 1.0, 0.75]; // index 0=N, 1-6（配合2000转升挡）
 const REVERSE_RATIOS = [0, 4.0, 2.8]; // R1, R2（和1挡2挡一样）
 const FINAL_DRIVE = 3.2;
-const ENGINE_TORQUE_PEAK = 1100;
+let ENGINE_TORQUE_PEAK = 1100;
 function engineTorqueCurve(rpm) {
   const r = (rpm - RPM_IDLE) / (RPM_REDLINE - RPM_IDLE);
   // 低转非常饱满，峰值在中段，高转略衰减
@@ -2093,6 +2096,12 @@ const keys = {};
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   resumeAudio(); // 首次按键时激活音频（浏览器要求用户交互）
+  // Enter 键切换车辆
+  if (e.code === 'Enter') {
+    const ids = Object.keys(VEHICLES);
+    const nextIdx = (ids.indexOf(currentVehicleId) + 1) % ids.length;
+    switchVehicle(ids[nextIdx]);
+  }
   // L 键切换差速锁
   if (e.code === 'KeyL') toggleDiffLock();
   // R 键重置（随时生效，不仅是翻车时）
@@ -2500,6 +2509,53 @@ function updatePhysics(dt) {
 }
 
 // ============================================================
+// VEHICLE CONFIGURATION — 每辆车的参数封装
+// ============================================================
+const VEHICLES = {
+  'haval_h9': {
+    name: 'Haval H9',
+    path: 'haval/newcar.glb',
+    scale: 5.4,
+    removeNodes: ['Truckbody'],
+    wheelNames: { FL:'WTmesh_FL', FR:'WTmesh_FR', BL:'WTmesh_BL', BR:'WTmesh_BR' },
+    lights: { headX:1.08, headY:2.05, headZ:2.54, tailX:1.26, tailY:2.30, tailZ:3.00 },
+    materials: {
+      'Material.001': null,
+      'lambert6': { color:0x3a3a3a, metalness:0, roughness:0.85 },
+      'blinn9':   { color:0xaaaaaa, metalness:0.6, roughness:0.2 },
+      'lambert7': { color:0x888888, metalness:0.3, roughness:0.4 },
+      'phong1':   { color:0x2a2a2a, metalness:0.1, roughness:0.6 },
+      'lambert8': { color:0x333333, metalness:0.1, roughness:0.7 },
+    },
+    stats: { power:75, offroad:80, fuel:70, speed:65, weight:80 },
+    physics: { mass:3500, driveMass:1400, maxSpeed:30, maxReverse:12, torque:1100, fuelMax:300 },
+  },
+  'tank_300': {
+    name: 'TANK 300',
+    path: 'haval/ride02new.glb',
+    scale: 5.4,
+    modelRotation: -Math.PI / 2, // 模型朝向校正
+    wheelAxis: 'z', // 轮子滚动轴（默认'x'，TANK 300需要'z'）
+    wheelSpinFlip: -1, // 轮子旋转方向翻转
+    suspensionScale: 0.3, // 悬架视觉幅度缩放（效果接近H9）
+    wheelScale: { x: 1.15, y: 1.15, z: 1.55 }, // 轮子缩放（调试确定）
+    spareName: 'tripo_part_33.001', // 备胎节点名（在ParentNode.001下）
+    removeNodes: [],
+    wheelNames: { FL:'WTmesh_FL', FR:'WTmesh_FR', BL:'WTmesh_BL', BR:'WTmesh_BR' },
+    lights: { headX:1.0, headY:2.0, headZ:2.5, tailX:1.2, tailY:2.2, tailZ:2.8 }, // 待调试
+    materials: {
+      'Material.001': null,
+      'Material.002': null,
+    },
+    stats: { power:85, offroad:90, fuel:60, speed:70, weight:70 },
+    physics: { mass:2800, driveMass:1200, maxSpeed:32, maxReverse:14, torque:1250, fuelMax:280 },
+  },
+};
+
+let currentVehicleId = 'haval_h9';
+const DEBUG_LIGHTS = false; // 灯光调试模式（true时显示滑块+强制夜晚+自由视角）
+
+// ============================================================
 // MODEL
 // ============================================================
 let truckModel = null;
@@ -2507,96 +2563,133 @@ let truckGroup = null;
 let wheelFL = null, wheelFR = null, wheelBL = null, wheelBR = null;
 let wheelRadius = 0.4;
 let modelReady = false;
-let wheelPivotRestPos = {}; // 每个轮子pivot的静止local position（在其parent内）
-let modelCenterOffset = new THREE.Vector3(); // truckModel的居中偏移
+let wheelPivotRestPos = {};
+let modelCenterOffset = new THREE.Vector3();
+let wheelSpinAxis = new THREE.Vector3(1, 0, 0); // 轮子滚动轴（默认X轴，可被车辆配置覆盖）
+let wheelSpinFlip = 1; // 轮子旋转方向（1=正常，-1=翻转）
+let suspensionScale = 1.0; // 悬架视觉幅度缩放
 
-// 车灯状态
 const carLights = {
   installed: false,
-  lowBeam: false,      // 近光灯开关（手动）
-  highBeam: false,     // 远光灯开关（手动）
-  autoOn: false,       // 自动判断是否需要开灯（光线暗时）
-  // 前灯：上2=远光(high)，下2=近光(low)
-  headHighL: null, headHighR: null,  // SpotLight
-  headLowL: null, headLowR: null,    // SpotLight
-  headGlows: [],       // 4个灯罩发光mesh
-  // 尾灯：下2=常亮(running)，上2=刹车(brake)
-  tailRunL: null, tailRunR: null,    // PointLight
-  tailBrakeL: null, tailBrakeR: null, // PointLight
-  tailGlows: [],       // 4个尾灯发光mesh
-  // 材质引用（用于emissive控制）
-  headMat: null,       // blinn4
-  tailMat: null,       // blinn5
+  lowBeam: false, highBeam: false, autoOn: false,
+  headHighL: null, headHighR: null, headLowL: null, headLowR: null,
+  headGlows: [], headPointL: null, headPointR: null,
+  tailRunL: null, tailRunR: null, tailBrakeL: null, tailBrakeR: null,
+  tailGlows: [],
+  headMat: null, tailMat: null,
 };
 
-const loader = new GLTFLoader();
-loader.load(
-  'haval/newcar.glb',
-  (gltf) => { try {
+// ---- 释放当前车辆所有资源 ----
+function disposeCurrentVehicle() {
+  modelReady = false;
+  carLights.installed = false;
+  // 释放灯光引用
+  carLights.headHighL = carLights.headHighR = carLights.headLowL = carLights.headLowR = null;
+  carLights.headPointL = carLights.headPointR = null;
+  carLights.tailRunL = carLights.tailRunR = carLights.tailBrakeL = carLights.tailBrakeR = null;
+  carLights.headGlows = []; carLights.tailGlows = [];
+  carLights.headMat = carLights.tailMat = null;
+  carLights.lowBeam = carLights.highBeam = carLights.autoOn = false;
+  // 从场景移除并递归释放
+  if (truckGroup) {
+    scene.remove(truckGroup);
+    truckGroup.traverse(c => {
+      if (c.isMesh) { c.geometry?.dispose(); if (Array.isArray(c.material)) c.material.forEach(m=>m.dispose()); else c.material?.dispose(); }
+      if (c.isLight) c.dispose?.();
+    });
+  }
+  truckModel = null; truckGroup = null;
+  wheelFL = wheelFR = wheelBL = wheelBR = null;
+  wheelRadius = 0.4; wheelPivotRestPos = {};
+  modelCenterOffset = new THREE.Vector3();
+  wheelSpinAxis.set(1, 0, 0);
+  wheelSpinFlip = 1;
+  suspensionScale = 1.0;
+}
+
+// ---- 通用车辆加载函数 ----
+function loadVehicle(vehicleId, onComplete) {
+  const config = VEHICLES[vehicleId];
+  if (!config) { console.error('Unknown vehicle:', vehicleId); return; }
+  currentVehicleId = vehicleId;
+
+  // 应用物理参数
+  const ph = config.physics;
+  MASS = ph.mass; DRIVE_MASS = ph.driveMass;
+  MAX_SPEED = ph.maxSpeed; MAX_REVERSE = ph.maxReverse;
+  ENGINE_TORQUE_PEAK = ph.torque; FUEL_MAX = ph.fuelMax;
+
+  const loader = new GLTFLoader();
+  console.log('[loadVehicle] Loading:', config.path);
+  loader.load(config.path, (gltf) => { try {
+    console.log('[loadVehicle] GLTF loaded, processing...');
     truckModel = gltf.scene;
 
-    // ---- 新模型节点清理 ----
-    // GLB有两个根节点：ParentNode(tripo新车身,自带scale=18.3) + Sketchfab_model(轮子+备胎+旧车身)
-    // 删除旧Truckbody，保留轮子和备胎在原位（它们和truckModel一起做pitch/roll）
-    let truckbodyNode = null;
-    truckModel.traverse(child => {
-      if (child.name === 'Truckbody') truckbodyNode = child;
+    // ---- 节点清理：删除配置中指定的节点 ----
+    config.removeNodes.forEach(nodeName => {
+      let target = null;
+      truckModel.traverse(c => { if (c.name === nodeName) target = c; });
+      if (target && target.parent) {
+        target.parent.remove(target);
+        target.traverse(c => { if (c.isMesh) { c.geometry?.dispose(); c.material?.dispose?.(); } });
+      }
     });
-    if (truckbodyNode && truckbodyNode.parent) {
-      truckbodyNode.parent.remove(truckbodyNode);
-      truckbodyNode.traverse(c => { if (c.isMesh) { c.geometry?.dispose(); c.material?.dispose?.(); } });
+
+    // 模型朝向校正（有些模型前方不是+Z，需要旋转）
+    if (config.modelRotation) {
+      // 在根场景下创建一个旋转容器，把所有子节点放进去
+      const rotWrapper = new THREE.Group();
+      rotWrapper.rotation.y = config.modelRotation;
+      while (truckModel.children.length > 0) {
+        rotWrapper.add(truckModel.children[0]);
+      }
+      truckModel.add(rotWrapper);
+      truckModel.updateMatrixWorld(true);
     }
-    // 备胎(WTmesh_BD)留在RootNode下，和4个轮子同级
-    // 整个truckModel做pitch/roll时，备胎自然跟随
 
     // Scale
     const box = new THREE.Box3().setFromObject(truckModel);
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = 5.4 / maxDim; // 4.5 × 1.2 = 5.4（放大1.2倍）
-    truckModel.scale.setScalar(scale);
+    truckModel.scale.setScalar(config.scale / maxDim);
 
     // Re-center
     const box2 = new THREE.Box3().setFromObject(truckModel);
     const center2 = box2.getCenter(new THREE.Vector3());
-    const min2 = box2.min;
     truckModel.position.x -= center2.x;
     truckModel.position.z -= center2.z;
-    truckModel.position.y -= min2.y;
+    truckModel.position.y -= box2.min.y;
     modelCenterOffset.copy(truckModel.position);
 
-    // Fix materials
+    // Fix materials（配置驱动）
     truckModel.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        const mat = child.material;
-        const name = mat.name || '';
-        // tripo车身(Material.001)带纹理，保持原样不调色
-        if (name === 'Material.001') { /* keep texture */ }
-        // 轮子/备胎材质调色（和旧模型一致的材质名）
-        else if (name === 'lambert6') { mat.color.set(0x3a3a3a); mat.metalness = 0; mat.roughness = 0.85; }
-        else if (name === 'blinn9') { mat.color.set(0xaaaaaa); mat.metalness = 0.6; mat.roughness = 0.2; }
-        else if (name === 'lambert7') { mat.color.set(0x888888); mat.metalness = 0.3; mat.roughness = 0.4; }
-        else if (name === 'phong1') { mat.color.set(0x2a2a2a); mat.metalness = 0.1; mat.roughness = 0.6; }
-        else if (name === 'lambert8') { mat.color.set(0x333333); mat.metalness = 0.1; mat.roughness = 0.7; }
+        const matName = child.material?.name || '';
+        const matCfg = config.materials[matName];
+        if (matCfg === null) { /* keep as-is (texture) */ }
+        else if (matCfg) {
+          if (matCfg.color !== undefined) child.material.color.set(matCfg.color);
+          if (matCfg.metalness !== undefined) child.material.metalness = matCfg.metalness;
+          if (matCfg.roughness !== undefined) child.material.roughness = matCfg.roughness;
+        }
       }
     });
 
-    // Hierarchy: truckGroup > truckModel (含车身+轮子)
-    // 悬架方案：truckGroup 平贴地面，truckModel 整体做 pitch/roll，
-    //           但每帧对轮子 pivot 施加反向补偿，让轮子视觉上始终贴地
+    // Hierarchy
     truckGroup = new THREE.Group();
     truckGroup.add(truckModel);
     scene.add(truckGroup);
 
-    // Find and create wheel pivots（与原来完全相同的方式）
+    // Find wheels by config names
+    const wn = config.wheelNames;
     let rawFL = null, rawFR = null, rawBL = null, rawBR = null;
     truckModel.traverse((child) => {
-      if (child.name === 'WTmesh_FL') rawFL = child;
-      if (child.name === 'WTmesh_FR') rawFR = child;
-      if (child.name === 'WTmesh_BL') rawBL = child;
-      if (child.name === 'WTmesh_BR') rawBR = child;
+      if (child.name === wn.FL) rawFL = child;
+      if (child.name === wn.FR) rawFR = child;
+      if (child.name === wn.BL) rawBL = child;
+      if (child.name === wn.BR) rawBR = child;
     });
 
     truckGroup.updateMatrixWorld(true);
@@ -2623,147 +2716,143 @@ loader.load(
     const frInfo = createWheelPivot(rawFR);
     const blInfo = createWheelPivot(rawBL);
     const brInfo = createWheelPivot(rawBR);
-
     wheelFL = flInfo?.pivot || null;
     wheelFR = frInfo?.pivot || null;
     wheelBL = blInfo?.pivot || null;
     wheelBR = brInfo?.pivot || null;
 
-    // 记录每个轮子pivot的信息：pivot引用 + 静止时的世界Y坐标 + 在parent内的localCenter
+    // 轮子尺寸调整（对pivot整体缩放，pivot原点在轮子中心不会偏移）
+    if (config.wheelScale) {
+      const ws = config.wheelScale;
+      [wheelFL, wheelFR, wheelBL, wheelBR].forEach(pivot => {
+        if (!pivot) return;
+        pivot.scale.set(ws.x || 1, ws.y || 1, ws.z || 1);
+      });
+    }
+
+    // 备胎节点引用（供调试缩放用）
+    if (config.spareName) {
+      let spareNode = null;
+      truckModel.traverse(c => { if (c.name === config.spareName) spareNode = c; });
+      window._spareNode = spareNode;
+      if (spareNode) console.log('[Vehicle] Spare tire found:', config.spareName);
+    } else {
+      window._spareNode = null;
+    }
+
     truckGroup.updateMatrixWorld(true);
     [['FL', flInfo], ['FR', frInfo], ['BL', blInfo], ['BR', brInfo]].forEach(([label, info]) => {
       if (!info) return;
       const wp = new THREE.Vector3();
       info.pivot.getWorldPosition(wp);
-      wheelPivotRestPos[label] = {
-        localPos: info.localCenter.clone(), // pivot.position in parent space
-        worldY: wp.y,                        // 静止时的世界Y
-      };
+      wheelPivotRestPos[label] = { localPos: info.localCenter.clone(), worldY: wp.y };
     });
 
-    // 计算实际半轮距（左右轮中心的X距离的一半）
     if (flInfo && frInfo) {
       const flW = new THREE.Vector3(), frW = new THREE.Vector3();
-      flInfo.pivot.getWorldPosition(flW);
-      frInfo.pivot.getWorldPosition(frW);
+      flInfo.pivot.getWorldPosition(flW); frInfo.pivot.getWorldPosition(frW);
       HALF_TRACK_WIDTH = Math.abs(flW.x - frW.x) / 2;
     }
-
     if (flInfo) {
-      const dims = [flInfo.size.x, flInfo.size.y, flInfo.size.z].sort((a, b) => a - b);
-      wheelRadius = dims[2] / 2;
+      // 重新从pivot包围盒计算（包含wheelScale缩放后的实际大小）
+      const wBox2 = new THREE.Box3().setFromObject(flInfo.pivot);
+      const wSize2 = wBox2.getSize(new THREE.Vector3());
+      const dims = [wSize2.x, wSize2.y, wSize2.z].sort((a,b) => a-b);
+      wheelRadius = dims[1] / 2; // 中间值=直径（最大值可能是宽度方向）
     }
-
-    // 计算轴距（前轮中心到后轮中心的Z距离）
     if (flInfo && blInfo) {
       const flW = new THREE.Vector3(), blW = new THREE.Vector3();
-      flInfo.pivot.getWorldPosition(flW);
-      blInfo.pivot.getWorldPosition(blW);
+      flInfo.pivot.getWorldPosition(flW); blInfo.pivot.getWorldPosition(blW);
       WHEELBASE = Math.sqrt((flW.x - blW.x) ** 2 + (flW.z - blW.z) ** 2);
     }
 
-    // 从模型实际尺寸计算物理参数
     const finalBox = new THREE.Box3().setFromObject(truckGroup);
     const carHeight = finalBox.max.y - finalBox.min.y;
     const carWidth = finalBox.max.x - finalBox.min.x;
-    CG_HEIGHT = carHeight * 0.22;  // 重心很低 → 非常稳
+    const carLen = finalBox.max.z - finalBox.min.z;
+    CG_HEIGHT = carHeight * 0.22;
     CAR_HALF_HEIGHT = carHeight / 2;
     CAR_HALF_WIDTH = carWidth / 2;
 
-    console.log(`[Vehicle] wheelbase=${WHEELBASE.toFixed(3)}, halfTrack=${HALF_TRACK_WIDTH.toFixed(3)}, cgH=${CG_HEIGHT.toFixed(3)}, carH=${carHeight.toFixed(3)}, carW=${carWidth.toFixed(3)}, wheelR=${wheelRadius.toFixed(3)}, critAngle=${(Math.atan2(HALF_TRACK_WIDTH, CG_HEIGHT) * 57.3).toFixed(1)}°`);
+    console.log(`[Vehicle] ${config.name} loaded: wb=${WHEELBASE.toFixed(2)}, ht=${HALF_TRACK_WIDTH.toFixed(2)}, cg=${CG_HEIGHT.toFixed(2)}, mass=${MASS}, torque=${ENGINE_TORQUE_PEAK}, fuel=${FUEL_MAX}`);
 
-    // ============================================================
-    // HEADLIGHTS & TAILLIGHTS — 从模型灯光mesh精确定位
-    // ============================================================
+    // ---- 灯光安装（配置驱动）----
     truckGroup.updateMatrixWorld(true);
-
-    // 灯位：固定比例参数（通过调试滑块确定）
-    const carLen = finalBox.max.z - finalBox.min.z;
-
-    // 前大灯（X:1.08 Y:2.05 Z:2.54）
-    const hXL = -carWidth * 1.08, hXR = carWidth * 1.08;
-    const hY = carHeight * 2.05, hZ = carLen / 2 * 2.54;
+    const lt = config.lights;
+    const hXL = -carWidth * lt.headX, hXR = carWidth * lt.headX;
+    const hY = carHeight * lt.headY, hZ = carLen / 2 * lt.headZ;
     const hYlo = hY - 0.08, hYhi = hY + 0.08;
-
-    // 尾灯（X:1.26 Y:2.30 Z:3.00）
-    const tXL = -carWidth * 1.26, tXR = carWidth * 1.26;
-    const tY = carHeight * 2.30, tZ = -carLen / 2 * 3.00;
+    const tXL = -carWidth * lt.tailX, tXR = carWidth * lt.tailX;
+    const tY = carHeight * lt.tailY, tZ = -carLen / 2 * lt.tailZ;
     const tYlo = tY - 0.06, tYhi = tY + 0.06;
 
-    // -- 前大灯 ×4: 上2=远光(High), 下2=近光(Low) --
-    function addHeadlight(x, y, z, distance, angle, key) {
+    function addHeadlight(x, y, z, distance, angle) {
       const light = new THREE.SpotLight(0xfff4d0, 0, distance, angle, 0.4, 1.5);
-      light.position.set(x, y, z);
-      light.castShadow = false;
-      const target = new THREE.Object3D();
-      target.position.set(x, y - 1, z + 20);
-      truckModel.add(target);
-      light.target = target;
-      truckModel.add(light);
-      // 灯泡发光
-      const glow = new THREE.Mesh(
-        new THREE.SphereGeometry(0.06, 6, 6),
-        new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0 })
-      );
-      glow.position.set(x, y, z + 0.02);
-      truckModel.add(glow);
+      light.position.set(x, y, z); light.castShadow = false;
+      const target = new THREE.Object3D(); target.position.set(x, y-1, z+20);
+      truckModel.add(target); light.target = target; truckModel.add(light);
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(0.06,6,6), new THREE.MeshBasicMaterial({color:0xfff8e0,transparent:true,opacity:0}));
+      glow.position.set(x, y, z+0.02); truckModel.add(glow);
       carLights.headGlows.push(glow);
       return light;
     }
+    carLights.headHighL = addHeadlight(hXL, hYhi, hZ, 80, Math.PI/9);
+    carLights.headHighR = addHeadlight(hXR, hYhi, hZ, 80, Math.PI/9);
+    carLights.headHighL.target.position.set(hXL*0.3, hYhi-0.5, hZ+40);
+    carLights.headHighR.target.position.set(hXR*0.3, hYhi-0.5, hZ+40);
+    carLights.headLowL = addHeadlight(hXL, hYlo, hZ, 30, Math.PI/4.5);
+    carLights.headLowR = addHeadlight(hXR, hYlo, hZ, 30, Math.PI/4.5);
+    carLights.headLowL.target.position.set(hXL*0.5, hYlo-2, hZ+12);
+    carLights.headLowR.target.position.set(hXR*0.5, hYlo-2, hZ+12);
+    carLights.headPointL = new THREE.PointLight(0xfff4d0,0,5,2); carLights.headPointL.position.set(hXL,hY,hZ+0.05); truckModel.add(carLights.headPointL);
+    carLights.headPointR = new THREE.PointLight(0xfff4d0,0,5,2); carLights.headPointR.position.set(hXR,hY,hZ+0.05); truckModel.add(carLights.headPointR);
 
-    // 远光灯（上排，照得更远更窄更亮）— 使用精确灯位
-    carLights.headHighL = addHeadlight(hXL, hYhi, hZ, 80, Math.PI / 9, 'HL');
-    carLights.headHighR = addHeadlight(hXR, hYhi, hZ, 80, Math.PI / 9, 'HR');
-    carLights.headHighL.target.position.set(hXL * 0.3, hYhi - 0.5, hZ + 40);
-    carLights.headHighR.target.position.set(hXR * 0.3, hYhi - 0.5, hZ + 40);
-    // 近光灯（下排，照得近但更宽，略朝下）
-    carLights.headLowL = addHeadlight(hXL, hYlo, hZ, 30, Math.PI / 4.5, 'LL');
-    carLights.headLowR = addHeadlight(hXR, hYlo, hZ, 30, Math.PI / 4.5, 'LR');
-    carLights.headLowL.target.position.set(hXL * 0.5, hYlo - 2, hZ + 12);
-    carLights.headLowR.target.position.set(hXR * 0.5, hYlo - 2, hZ + 12);
-
-    // 前灯泛光PointLight（让灯罩区域有暖黄色自发光感）
-    carLights.headPointL = new THREE.PointLight(0xfff4d0, 0, 5, 2);
-    carLights.headPointL.position.set(hXL, hY, hZ + 0.05);
-    truckModel.add(carLights.headPointL);
-    carLights.headPointR = new THREE.PointLight(0xfff4d0, 0, 5, 2);
-    carLights.headPointR.position.set(hXR, hY, hZ + 0.05);
-    truckModel.add(carLights.headPointR);
-
-    // -- 尾灯 ×4: 下2=常亮(Running), 上2=刹车(Brake) --
-    function addTaillight(x, y, z, key) {
-      const light = new THREE.PointLight(0xff2200, 0, 6, 2);
-      light.position.set(x, y, z);
-      truckModel.add(light);
-      const glow = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 0.06, 0.03),
-        new THREE.MeshBasicMaterial({ color: 0xaa0000, transparent: true, opacity: 0 })
-      );
-      glow.position.set(x, y, z - 0.01);
-      truckModel.add(glow);
-      carLights.tailGlows.push(glow);
+    function addTaillight(x, y, z) {
+      const light = new THREE.PointLight(0xff2200,0,6,2); light.position.set(x,y,z); truckModel.add(light);
+      const glow = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.06,0.03), new THREE.MeshBasicMaterial({color:0xaa0000,transparent:true,opacity:0}));
+      glow.position.set(x,y,z-0.01); truckModel.add(glow); carLights.tailGlows.push(glow);
       return light;
     }
+    carLights.tailRunL = addTaillight(tXL, tYlo, tZ);
+    carLights.tailRunR = addTaillight(tXR, tYlo, tZ);
+    carLights.tailBrakeL = addTaillight(tXL, tYhi, tZ);
+    carLights.tailBrakeR = addTaillight(tXR, tYhi, tZ);
 
-    // 常亮尾灯（下排）— 使用精确灯位
-    carLights.tailRunL = addTaillight(tXL, tYlo, tZ, 'TRL');
-    carLights.tailRunR = addTaillight(tXR, tYlo, tZ, 'TRR');
-    // 刹车灯（上排）
-    carLights.tailBrakeL = addTaillight(tXL, tYhi, tZ, 'TBL');
-    carLights.tailBrakeR = addTaillight(tXR, tYhi, tZ, 'TBR');
-
-    // headMat/tailMat保持null（无灯光mesh材质，发光效果由glow球体提供）
+    // 轮子旋转轴和方向
+    if (config.wheelAxis === 'z') wheelSpinAxis.set(0, 0, 1);
+    else if (config.wheelAxis === 'y') wheelSpinAxis.set(0, 1, 0);
+    else wheelSpinAxis.set(1, 0, 0);
+    wheelSpinFlip = config.wheelSpinFlip || 1;
+    suspensionScale = config.suspensionScale || 1.0;
 
     carLights.installed = true;
-
     modelReady = true;
-    initAudio(); // 预创建音频节点（用户交互时才resume）
+    initAudio();
     document.getElementById('loading').classList.add('hidden');
-  } catch(e) { console.error(e); document.getElementById('loading').textContent = '初始化失败: ' + e.message; }
-  },
-  undefined,
-  (err) => { console.error(err); document.getElementById('loading').textContent = '加载失败: ' + err.message; }
-);
+    if (onComplete) onComplete();
+  } catch(e) { console.error('[loadVehicle] INIT ERROR:', e); document.getElementById('loading').textContent = '初始化失败: ' + e.message; }
+  }, (progress) => {
+    if (progress.total) console.log('[loadVehicle] Progress:', (progress.loaded/progress.total*100).toFixed(0) + '%');
+  }, (err) => { console.error('[loadVehicle] LOAD ERROR:', err); document.getElementById('loading').textContent = '加载失败: ' + err.message; });
+}
+
+// ---- 切换车辆 ----
+function switchVehicle(vehicleId) {
+  if (vehicleId === currentVehicleId && modelReady) return;
+  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('loading').textContent = '切换车辆中...';
+  disposeCurrentVehicle();
+  // 重置车辆物理状态
+  car.speed = 0; car.heading = 0; car.gear = 0; car.rpm = 800;
+  car.bodyRoll = 0; car.bodyPitch = 0; car.rollVel = 0; car.pitchVel = 0;
+  car.isInFlip = false; car.rollStoppedTime = 0;
+  car.springFL = car.springFR = car.springBL = car.springBR = 0;
+  car.springVelFL = car.springVelFR = car.springVelBL = car.springVelBR = 0;
+  loadVehicle(vehicleId);
+}
+
+// 初始加载
+loadVehicle(currentVehicleId);
 
 // ============================================================
 // CAR LIGHTS UPDATE
@@ -3083,6 +3172,8 @@ const _wpTemp = new THREE.Vector3();
 function updateTruck(dt) {
   if (!truckGroup || !modelReady) return;
 
+
+
   const wheelList = [
     { label: 'FL', p: wheelFL, front: true,  side: -1 },
     { label: 'FR', p: wheelFR, front: true,  side: +1 },
@@ -3277,13 +3368,13 @@ function updateTruck(dt) {
 
       p.position.set(
         info.localPos.x,
-        info.localPos.y + springComp,
+        info.localPos.y + springComp * suspensionScale,
         info.localPos.z
       );
 
       const axleRoll = front ? frontAxleRoll : rearAxleRoll;
       _axleRollQ.setFromAxisAngle(_axisZ, axleRoll);
-      _spQ.setFromAxisAngle(_axisX, totalSpinAngle);
+      _spQ.setFromAxisAngle(wheelSpinAxis, totalSpinAngle * wheelSpinFlip);
 
       if (front) {
         _sQ.setFromAxisAngle(_axisY, car.steer * MAX_STEER_ANGLE);
@@ -3318,8 +3409,7 @@ function updateTruck(dt) {
       p.position.copy(info.localPos);
 
       // 轮子只保留自转和转向，不做任何反向补偿
-      // 这样轮子跟着车身一起翻，角度自然
-      _spQ.setFromAxisAngle(_axisX, totalSpinAngle);
+      _spQ.setFromAxisAngle(wheelSpinAxis, totalSpinAngle * wheelSpinFlip);
       if (front) {
         _sQ.setFromAxisAngle(_axisY, car.steer * MAX_STEER_ANGLE);
         p.quaternion.copy(_sQ).multiply(_spQ);
@@ -4281,7 +4371,7 @@ document.addEventListener('click', (e) => {
 }
 
 // ---- 燃油系统 ----
-const FUEL_MAX = 300; // 满油秒数
+// FUEL_MAX 已在物理常量区声明（line ~2005）
 let fuel = FUEL_MAX;
 let gameOver = false;
 
@@ -4852,38 +4942,87 @@ let _npcSpawnTimer = 0;
 let npcModelReady = false;
 let npcTemplateGroup = null;
 
-// NPC使用旧皮卡模型（和玩家车不同，更容易区分）
+// NPC使用TANK 300模型（复用玩家车完整的pivot处理流程，确保轮距正确）
 {
+  const npcCfg = VEHICLES['tank_300'];
   const npcLoader = new GLTFLoader();
-  npcLoader.load('lp_offroad_truck1/scene.gltf', (npcGltf) => {
+  npcLoader.load(npcCfg.path, (npcGltf) => {
     const npcRaw = npcGltf.scene;
-    // 缩放到和玩家车类似大小
-    const npcBox = new THREE.Box3().setFromObject(npcRaw);
-    const npcSize = npcBox.getSize(new THREE.Vector3());
-    const npcScale = 4.5 / Math.max(npcSize.x, npcSize.y, npcSize.z);
-    npcRaw.scale.setScalar(npcScale);
-    // 居中
-    const npcBox2 = new THREE.Box3().setFromObject(npcRaw);
-    const npcCenter = npcBox2.getCenter(new THREE.Vector3());
-    npcRaw.position.x -= npcCenter.x;
-    npcRaw.position.z -= npcCenter.z;
-    npcRaw.position.y -= npcBox2.min.y;
-    // 材质调色
-    npcRaw.traverse(c => {
-      if (c.isMesh) {
-        c.castShadow = false; // NPC不投射阴影（节省性能）
-        c.receiveShadow = true;
-        const name = c.material?.name || '';
-        if (name === 'lambert6') { c.material = c.material.clone(); c.material.color.set(0x3a3a3a); c.material.metalness = 0; c.material.roughness = 0.85; }
-        if (name === 'blinn9') { c.material.color.set(0xaaaaaa); c.material.metalness = 0.6; c.material.roughness = 0.2; }
-        if (name === 'lambert7') { c.material.color.set(0x888888); c.material.metalness = 0.3; c.material.roughness = 0.4; }
-        if (name === 'phong1') { c.material.color.set(0x2a2a2a); c.material.metalness = 0.1; c.material.roughness = 0.6; }
-        if (name === 'lambert8') { c.material.color.set(0x333333); c.material.metalness = 0.1; c.material.roughness = 0.7; }
-      }
+
+    // 1. 朝向校正
+    if (npcCfg.modelRotation) {
+      const rotW = new THREE.Group();
+      rotW.rotation.y = npcCfg.modelRotation;
+      while (npcRaw.children.length > 0) rotW.add(npcRaw.children[0]);
+      npcRaw.add(rotW);
+      npcRaw.updateMatrixWorld(true);
+    }
+
+    // 2. 节点清理
+    npcCfg.removeNodes.forEach(nodeName => {
+      let target = null;
+      npcRaw.traverse(c => { if (c.name === nodeName) target = c; });
+      if (target?.parent) { target.parent.remove(target); target.traverse(c => { if (c.isMesh) { c.geometry?.dispose(); c.material?.dispose?.(); } }); }
     });
+
+    // 3. 缩放+居中
+    const box = new THREE.Box3().setFromObject(npcRaw);
+    const sz = box.getSize(new THREE.Vector3());
+    npcRaw.scale.setScalar(npcCfg.scale / Math.max(sz.x, sz.y, sz.z));
+    const box2 = new THREE.Box3().setFromObject(npcRaw);
+    const c2 = box2.getCenter(new THREE.Vector3());
+    npcRaw.position.x -= c2.x;
+    npcRaw.position.z -= c2.z;
+    npcRaw.position.y -= box2.min.y;
+
+    // 4. 轮子pivot化（和玩家车完全相同的createWheelPivot逻辑）
+    const wn = npcCfg.wheelNames;
+    let rawFL = null, rawFR = null, rawBL = null, rawBR = null;
+    npcRaw.traverse(c => {
+      if (c.name === wn.FL) rawFL = c;
+      if (c.name === wn.FR) rawFR = c;
+      if (c.name === wn.BL) rawBL = c;
+      if (c.name === wn.BR) rawBR = c;
+    });
+    npcRaw.updateMatrixWorld(true);
+    function _npcPivot(wheelNode) {
+      if (!wheelNode) return null;
+      const wBox = new THREE.Box3().setFromObject(wheelNode);
+      const wCenter = wBox.getCenter(new THREE.Vector3());
+      const parent = wheelNode.parent;
+      const parentInv = new THREE.Matrix4().copy(parent.matrixWorld).invert();
+      const localCenter = wCenter.clone().applyMatrix4(parentInv);
+      const pivot = new THREE.Group();
+      pivot.name = wheelNode.name + '_pivot';
+      pivot.position.copy(localCenter);
+      parent.add(pivot);
+      parent.remove(wheelNode);
+      pivot.add(wheelNode);
+      wheelNode.position.set(-localCenter.x, -localCenter.y, -localCenter.z);
+      return pivot;
+    }
+    _npcPivot(rawFL); _npcPivot(rawFR); _npcPivot(rawBL); _npcPivot(rawBR);
+
+    // 5. 轮子缩放（对pivot整体缩放，和玩家车完全相同）
+    if (npcCfg.wheelScale) {
+      const ws = npcCfg.wheelScale;
+      npcRaw.traverse(c => {
+        if (c.name && c.name.endsWith('_pivot') && c.name.startsWith('WTmesh_')) {
+          c.scale.set(ws.x || 1, ws.y || 1, ws.z || 1);
+        }
+      });
+    }
+
+    // 6. 材质
+    npcRaw.traverse(c => {
+      if (c.isMesh) { c.castShadow = false; c.receiveShadow = true; }
+    });
+
+    npcRaw._wheelSpinFlip = npcCfg.wheelSpinFlip || 1;
+    npcRaw._wheelAxis = npcCfg.wheelAxis || 'x';
     npcTemplateGroup = npcRaw;
     npcModelReady = true;
-    console.log('[NPC] Pickup truck model loaded for NPCs');
+    console.log('[NPC] TANK 300 loaded with full pivot setup');
   });
 }
 
@@ -4999,11 +5138,14 @@ function spawnStuckNPC() {
   helpSprite.visible = false; // 近距离才显示
   group.add(helpSprite);
 
-  // 找轮子 pivot（与玩家车相同结构：WTmesh_XX_pivot）
+  // 找轮子节点（TANK 300直接用WTmesh_XX名称，旧皮卡用_pivot后缀）
   const _npcWheels = [];
+  const _wn = npcTemplateGroup?._wheelNames;
   npcCar.traverse(c => {
-    if (c.name === 'WTmesh_FL_pivot' || c.name === 'WTmesh_FR_pivot' ||
-        c.name === 'WTmesh_BL_pivot' || c.name === 'WTmesh_BR_pivot') {
+    if (_wn && (c.name === _wn.FL || c.name === _wn.FR || c.name === _wn.BL || c.name === _wn.BR)) {
+      _npcWheels.push(c);
+    } else if (c.name === 'WTmesh_FL_pivot' || c.name === 'WTmesh_FR_pivot' ||
+               c.name === 'WTmesh_BL_pivot' || c.name === 'WTmesh_BR_pivot') {
       _npcWheels.push(c);
     }
   });
@@ -5178,16 +5320,17 @@ function endTow(success) {
     const npc = towState.npc;
     npc.rescued = true;
     npc.helpSprite.visible = false;
+    // 隐藏救援提示圈
+    if (npc._rescueZone) { npc._rescueZone.visible = false; }
 
-    // 初始朝向玩家车
-    const rdx = car.pos.x - npc.wx, rdz = car.pos.z - npc.wz;
-    npc.group.rotation.y = Math.atan2(rdx, rdz);
+    // 恢复正常姿态
     npc.group.rotation.x = 0; npc.group.rotation.z = 0;
 
-    // 行驶状态
-    npc._drivePhase = 'toward';  // 'toward' | 'away'
-    npc._followDist = 0;
-    npc._npcSpeed = 5;
+    // AI行驶状态（沿道路行驶，在updateStuckNPCs中初始化路点）
+    npc._aiTrailIdx = null; // 延迟初始化
+    npc._npcSpeed = 5 + Math.random() * 3; // 5~8 m/s 随机速度
+    npc._rescueOriginX = npc.wx; // 记录救援起始位置
+    npc._rescueOriginZ = npc.wz;
 
     // "Thank you, bro!" 气泡 sprite
     const tCanvas = document.createElement('canvas');
@@ -5306,7 +5449,7 @@ function ensurePlayerBubble() {
 }
 
 function updateStuckNPCs(dt) {
-  if (!npcModelReady && truckModel) buildNpcTemplate();
+  if (!npcModelReady) buildNpcTemplate(); // NPC模型独立加载，不依赖玩家车辆
   ensurePlayerBubble();
 
   _npcSpawnTimer += dt;
@@ -5324,39 +5467,123 @@ function updateStuckNPCs(dt) {
 
     if (npc.rescued) {
       npc._removeTimer += dt;
+
+      // ---- 距离裁剪：200m外隐藏+跳过AI更新 ----
+      const dxCull = npc.group.position.x - car.pos.x;
+      const dzCull = npc.group.position.z - car.pos.z;
+      const distSqCull = dxCull * dxCull + dzCull * dzCull;
+      if (distSqCull > 200 * 200) {
+        npc.group.visible = false;
+        // 距离救援点足够远 + 玩家看不到 → 删除
+        const dxOrig = npc.group.position.x - (npc._rescueOriginX || 0);
+        const dzOrig = npc.group.position.z - (npc._rescueOriginZ || 0);
+        if (dxOrig * dxOrig + dzOrig * dzOrig > 80 * 80) { disposeObject(npc.group); stuckNPCs.splice(i, 1); }
+        continue;
+      }
+      npc.group.visible = true;
+
       const npcX = npc.group.position.x, npcZ = npc.group.position.z;
-      const headY = npc.group.rotation.y;
       const spd = npc._npcSpeed || 5;
 
-      // ---- 行驶阶段 ----
-      if (npc._drivePhase === 'toward') {
-        // 转向玩家
-        const tdx = car.pos.x - npcX, tdz = car.pos.z - npcZ;
-        const targetH = Math.atan2(tdx, tdz);
-        let dh = targetH - headY;
-        while (dh > Math.PI) dh -= Math.PI * 2;
-        while (dh < -Math.PI) dh += Math.PI * 2;
-        npc.group.rotation.y += dh * Math.min(1, 3 * dt);
-        // 前进
-        npc.group.position.x += Math.sin(npc.group.rotation.y) * spd * dt;
-        npc.group.position.z += Math.cos(npc.group.rotation.y) * spd * dt;
-        npc._followDist += spd * dt;
-        // 切换条件：到达玩家附近 或 玩家在前进时跟了5m
-        const distToPlayer = Math.sqrt(tdx * tdx + tdz * tdz);
-        const playerMoving = Math.abs(car.speed) > 0.5;
-        if (distToPlayer < 4.5 || (playerMoving && npc._followDist > 5)) {
-          npc._drivePhase = 'away';
-          npc.group.rotation.y = Math.random() * Math.PI * 2;
-          // 感谢气泡 3秒后淡出
-          if (npc._thankSprite) {
-            npc._thankFadeTimer = 3.0;
-          }
+      // ---- AI沿道路行驶：找最近道路点跟随 ----
+      if (!npc._aiTrailIdx) {
+        // 初始化：找到最近的道路点作为起始
+        let bestD = Infinity, bestIdx = 0;
+        for (let ti = 0; ti < TRAIL_POINTS.length; ti++) {
+          const tdx = TRAIL_POINTS[ti].x - npcX, tdz = TRAIL_POINTS[ti].z - npcZ;
+          const d2 = tdx * tdx + tdz * tdz;
+          if (d2 < bestD) { bestD = d2; bestIdx = ti; }
         }
-      } else {
-        // 随机方向驶离
-        npc.group.position.x += Math.sin(npc.group.rotation.y) * spd * dt;
-        npc.group.position.z += Math.cos(npc.group.rotation.y) * spd * dt;
+        npc._aiTrailIdx = bestIdx;
+        npc._aiDir = 1; // 沿道路正方向
+        // 感谢气泡 3秒后淡出
+        if (npc._thankSprite) npc._thankFadeTimer = 3.0;
       }
+
+      // ---- 碰撞检测：与玩家车 ----
+      const collDx = car.pos.x - npcX, collDz = car.pos.z - npcZ;
+      const collDist = Math.sqrt(collDx * collDx + collDz * collDz);
+      const NPC_COLLIDE_RADIUS = 4.5;
+
+      let playerBlocking = false;
+      if (collDist < NPC_COLLIDE_RADIUS * 2) {
+        const fwdDot = (collDx * Math.sin(npc.group.rotation.y) + collDz * Math.cos(npc.group.rotation.y)) / Math.max(collDist, 0.01);
+        playerBlocking = fwdDot > 0.3;
+      }
+      if (collDist < NPC_COLLIDE_RADIUS && collDist > 0.01) {
+        const cn = 1 / collDist;
+        const pushNx = collDx * cn, pushNz = collDz * cn;
+        const overlap = NPC_COLLIDE_RADIUS - collDist;
+        npc.group.position.x -= pushNx * overlap * 0.5;
+        npc.group.position.z -= pushNz * overlap * 0.5;
+        car.pos.x += pushNx * overlap * 0.3;
+        car.pos.z += pushNz * overlap * 0.3;
+        playCollisionSound(Math.abs(spd) * 0.3);
+      }
+
+      // ---- 碰撞检测：与其他NPC车辆（避免穿模）----
+      let otherBlocking = false;
+      for (let j = 0; j < stuckNPCs.length; j++) {
+        if (j === i) continue;
+        const other = stuckNPCs[j];
+        const odx = other.group.position.x - npcX, odz = other.group.position.z - npcZ;
+        const oDist = Math.sqrt(odx * odx + odz * odz);
+        // 推开（不穿模）
+        if (oDist < NPC_COLLIDE_RADIUS && oDist > 0.01) {
+          const on = 1 / oDist;
+          const overlap = NPC_COLLIDE_RADIUS - oDist;
+          npc.group.position.x -= odx * on * overlap * 0.5;
+          npc.group.position.z -= odz * on * overlap * 0.5;
+        }
+        // 前方有其他NPC → 阻挡
+        if (oDist < NPC_COLLIDE_RADIUS * 2 && oDist > 0.01) {
+          const fDot = (odx * Math.sin(npc.group.rotation.y) + odz * Math.cos(npc.group.rotation.y)) / oDist;
+          if (fDot > 0.3) otherBlocking = true;
+        }
+      }
+
+      // 决策：绕开还是停车
+      const anyBlocking = playerBlocking || otherBlocking;
+      if (anyBlocking) {
+        if (npc._blockAction === undefined) {
+          npc._blockAction = Math.random() > 0.5 ? 'dodge' : 'stop';
+          npc._blockTimer = 0;
+        }
+        npc._blockTimer += dt;
+      } else {
+        npc._blockAction = undefined;
+      }
+
+      const isStopped = npc._blockAction === 'stop';
+      const isDodging = npc._blockAction === 'dodge';
+
+      // 目标路点
+      const targetPt = TRAIL_POINTS[npc._aiTrailIdx];
+      const tdx = targetPt.x - npcX, tdz = targetPt.z - npcZ;
+      const distToTarget = Math.sqrt(tdx * tdx + tdz * tdz);
+
+      // 到达当前路点 → 前进到下一个
+      if (distToTarget < 3) {
+        npc._aiTrailIdx = (npc._aiTrailIdx + npc._aiDir + TRAIL_POINTS.length) % TRAIL_POINTS.length;
+      }
+
+      // 转向目标路点（绕开时偏转方向）
+      let targetH = Math.atan2(tdx, tdz);
+      if (isDodging) {
+        // 偏转45度绕开（固定偏右）
+        targetH += 0.8;
+      }
+      let dh = targetH - npc.group.rotation.y;
+      while (dh > Math.PI) dh -= Math.PI * 2;
+      while (dh < -Math.PI) dh += Math.PI * 2;
+      npc.group.rotation.y += dh * Math.min(1, 3 * dt);
+
+      // 前进（停车时速度为0，绕开时正常速度，转弯时减速）
+      const turnFactor = 1 - Math.min(1, Math.abs(dh) * 0.5);
+      let actualSpd = spd * (0.4 + 0.6 * turnFactor);
+      if (isStopped) actualSpd = 0;
+      npc.group.position.x += Math.sin(npc.group.rotation.y) * actualSpd * dt;
+      npc.group.position.z += Math.cos(npc.group.rotation.y) * actualSpd * dt;
 
       // ---- 感谢气泡淡出 ----
       if (npc._thankSprite && npc._thankFadeTimer !== undefined) {
@@ -5379,15 +5606,27 @@ function updateStuckNPCs(dt) {
       const targetPitch = Math.atan2(gF - gR, 2.6);
       npc._npcSmoothPitch += (-targetPitch - npc._npcSmoothPitch) * Math.min(1, 6 * dt);
       npc.group.rotation.x = npc._npcSmoothPitch;
-      npc.group.rotation.z *= 0.92; // 侧倾归零
+      npc.group.rotation.z *= 0.92;
 
-      // ---- 轮子转动 ----
-      npc._spinAngle += spd / 0.4 * dt;
+      // ---- 轮子转动（使用NPC模型的正确旋转轴）----
+      const npcWheelAxis = npcTemplateGroup?._wheelAxis || 'x';
+      const npcSpinFlip = npcTemplateGroup?._wheelSpinFlip || 1;
+      npc._spinAngle += actualSpd / 0.4 * dt * npcSpinFlip;
       if (npc._wheels) {
-        for (const w of npc._wheels) w.rotation.x = npc._spinAngle;
+        for (const w of npc._wheels) {
+          if (npcWheelAxis === 'z') w.rotation.z = npc._spinAngle;
+          else w.rotation.x = npc._spinAngle;
+        }
       }
 
-      if (npc._removeTimer > 10) { disposeObject(npc.group); stuckNPCs.splice(i, 1); }
+      // 消失条件：距离救援点>80m + 距离玩家>100m（不在视野内自然不可见）
+      const dxO = npc.group.position.x - (npc._rescueOriginX || 0);
+      const dzO = npc.group.position.z - (npc._rescueOriginZ || 0);
+      const distFromOriginSq = dxO * dxO + dzO * dzO;
+      const distFromPlayerSq = dxCull * dxCull + dzCull * dzCull;
+      if (distFromOriginSq > 80 * 80 && distFromPlayerSq > 100 * 100) {
+        disposeObject(npc.group); stuckNPCs.splice(i, 1);
+      }
       continue;
     }
 
@@ -5469,16 +5708,16 @@ function updateStuckNPCs(dt) {
   }
 
   // ---- H键按下逻辑 ----
+  const DEBUG_FREE_RESCUE = false;
   if (keys['KeyH'] && !towState.active && nearestNPC && nearestDist < 8) {
     keys['KeyH'] = false;
     const hasHook = hasInventoryItem('拖车钩');
     const hasRope = hasInventoryItem('拖车绳');
-    if (hasHook && hasRope) {
+    if (DEBUG_FREE_RESCUE || (hasHook && hasRope)) {
       startTow(nearestNPC);
     } else {
-      // 先收起H气泡，再弹出缺少物品气泡
       if (playerBubble) playerBubble.visible = false;
-      _warnBubbleTimer = 3.0; // 显示3秒
+      _warnBubbleTimer = 3.0;
     }
   }
 
@@ -5585,6 +5824,16 @@ function updateStuckNPCs(dt) {
       npc.wz += towState.towDir.z * effectivePull * dt * npcDrag;
       npc.group.position.x = npc.wx;
       npc.group.position.z = npc.wz;
+      // 拖拽时轮子转动（根据实际移动距离）
+      if (npc._wheels && npcMoveDist > 0.001) {
+        const npcWheelAxis = npcTemplateGroup?._wheelAxis || 'x';
+        const npcFlip = npcTemplateGroup?._wheelSpinFlip || 1;
+        npc._spinAngle += (npcMoveSpeed / 0.4) * dt * npcFlip;
+        for (const w of npc._wheels) {
+          if (npcWheelAxis === 'z') w.rotation.z = npc._spinAngle;
+          else w.rotation.x = npc._spinAngle;
+        }
+      }
       // 车身微颤
       towState.shakePhase += dt * 40;
       car.bodyRoll += Math.sin(towState.shakePhase) * 0.004 * ropeStretch;
