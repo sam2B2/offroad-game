@@ -1,0 +1,11 @@
+Model Information:
+* title:	Low Poly Colorful Camera
+* source:	https://sketchfab.com/3d-models/low-poly-colorful-camera-d77abab61ff04046ad206e11b90fc6ef
+* author:	maulanafx (https://sketchfab.com/maulanafx)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Low Poly Colorful Camera" (https://sketchfab.com/3d-models/low-poly-colorful-camera-d77abab61ff04046ad206e11b90fc6ef) by maulanafx (https://sketchfab.com/maulanafx) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
