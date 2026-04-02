@@ -3496,7 +3496,7 @@ function updateTruck(dt) {
   if (dropState.active) {
     if (dropState.phase === 'fall') {
       // 自由落体（加强重力，让下落更爽快）
-      dropState.velY -= 25 * dt;
+      dropState.velY -= 45 * dt;
       smoothBodyY += dropState.velY * dt;
       // 检测着地
       if (smoothBodyY <= dropState.groundY) {
