@@ -6056,17 +6056,17 @@ function updateStuckNPCs(dt) {
 // ============================================================
 const CHECKPOINTS = [
   // 雨林区4个（雨林2是特殊救援打卡）
-  { id: '雨林1', name: '清晨的泥河村', biome: 'jungle', angle: _jungleDir - 0.3,  dist: 70,  rescue: false, thumb: '越野自驾/缩略图_雨林1_清晨的泥河村.jpeg', video: '越野自驾/雨林1_清晨的泥河村.mp4' },
-  { id: '雨林2', name: '救援电力小哥', biome: 'jungle', angle: _jungleDir + 0.1,  dist: 120, rescue: true,  thumb: '越野自驾/缩略图_雨林2_救援电力小哥.png',  video: '越野自驾/雨林2_救援电力小哥.mp4' },
-  { id: '雨林3', name: '茶山东甸子梁', biome: 'jungle', angle: _jungleDir + 0.35, dist: 90,  rescue: false, thumb: '越野自驾/缩略图_雨林3_茶山东甸子梁.jpeg', video: '越野自驾/雨林3_茶山东甸子梁.mp4' },
-  { id: '雨林4', name: '草原天路', biome: 'jungle', angle: _jungleDir - 0.15, dist: 150, rescue: false, thumb: '越野自驾/缩略图_雨林4_草原天路.png',  video: '越野自驾/雨林4_草原天路.mp4' },
+  { id: '雨林1', name: '清晨的泥河村', biome: 'jungle', angle: _jungleDir - 0.3,  dist: 70,  rescue: false, thumb: '越野自驾/缩略图_雨林1_清晨的泥河村.jpg', video: '越野自驾/雨林1_清晨的泥河村.mp4' },
+  { id: '雨林2', name: '救援电力小哥', biome: 'jungle', angle: _jungleDir + 0.1,  dist: 120, rescue: true,  thumb: '越野自驾/缩略图_雨林2_救援电力小哥.jpg', video: '越野自驾/雨林2_救援电力小哥.mp4' },
+  { id: '雨林3', name: '茶山东甸子梁', biome: 'jungle', angle: _jungleDir + 0.35, dist: 90,  rescue: false, thumb: '越野自驾/缩略图_雨林3_茶山东甸子梁.jpg', video: '越野自驾/雨林3_茶山东甸子梁.mp4' },
+  { id: '雨林4', name: '草原天路', biome: 'jungle', angle: _jungleDir - 0.15, dist: 150, rescue: false, thumb: '越野自驾/缩略图_雨林4_草原天路.jpg',  video: '越野自驾/雨林4_草原天路.mp4' },
   // 冰雪区3个（冰雪2是特殊救援打卡）
-  { id: '冰雪1', name: '冬日官厅水库', biome: 'snow', angle: Math.atan2(ICE_CENTER_Z, ICE_CENTER_X), dist: Math.sqrt(ICE_CENTER_X*ICE_CENTER_X+ICE_CENTER_Z*ICE_CENTER_Z), rescue: false, thumb: '越野自驾/缩略图_冰雪1_冬日官厅水库.jpeg', video: '越野自驾/冰雪1_冬日官厅水库.mp4' },
-  { id: '冰雪2', name: '桦皮岭陷车', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.2, dist: 130, rescue: true,  thumb: '越野自驾/缩略图_冰雪2_桦皮岭陷车.png',  video: '越野自驾/冰雪2_桦皮岭陷车..mp4' },
-  { id: '冰雪3', name: '冬季草原天路', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.5, dist: 100, rescue: false, thumb: '越野自驾/缩略图_冰雪3_冬季草原天路.png',  video: '越野自驾/冰雪3_冬季草原天路.mp4' },
+  { id: '冰雪1', name: '冬日官厅水库', biome: 'snow', angle: Math.atan2(ICE_CENTER_Z, ICE_CENTER_X), dist: Math.sqrt(ICE_CENTER_X*ICE_CENTER_X+ICE_CENTER_Z*ICE_CENTER_Z), rescue: false, thumb: '越野自驾/缩略图_冰雪1_冬日官厅水库.jpg', video: '越野自驾/冰雪1_冬日官厅水库.mp4' },
+  { id: '冰雪2', name: '桦皮岭陷车', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.2, dist: 130, rescue: true,  thumb: '越野自驾/缩略图_冰雪2_桦皮岭陷车.jpg',  video: '越野自驾/冰雪2_桦皮岭陷车..mp4' },
+  { id: '冰雪3', name: '冬季草原天路', biome: 'snow', angle: BIOME_SECTOR_ANGLES.snow + 0.5, dist: 100, rescue: false, thumb: '越野自驾/缩略图_冰雪3_冬季草原天路.jpg',  video: '越野自驾/冰雪3_冬季草原天路.mp4' },
   // 海滩区2个（海滩1是特殊救援打卡，海滩2是普通打卡）
-  { id: '海滩1', name: '金海湖救援', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert, dist: 60, rescue: true, thumb: '越野自驾/缩略图_海滩1_金海湖救援.png', video: '越野自驾/海滩1_金海湖救援.mp4' },
-  { id: '海滩2', name: '海阳市', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert + 0.4, dist: 90, rescue: false, thumb: '越野自驾/缩略图_海滩2_海阳市.png', video: '越野自驾/海滩2_海阳市..mp4' },
+  { id: '海滩1', name: '金海湖救援', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert, dist: 60, rescue: true, thumb: '越野自驾/缩略图_海滩1_金海湖救援.jpg', video: '越野自驾/海滩1_金海湖救援.mp4' },
+  { id: '海滩2', name: '海阳市', biome: 'desert', angle: BIOME_SECTOR_ANGLES.desert + 0.4, dist: 90, rescue: false, thumb: '越野自驾/缩略图_海滩2_海阳市.jpg', video: '越野自驾/海滩2_海阳市..mp4' },
 ];
 
 // 运行时状态
