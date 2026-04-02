@@ -35,7 +35,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
   padding:6px 16px;font-family:'Noto Sans SC',sans-serif;font-size:12px;color:rgba(255,255,255,0.7);
   background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);border-radius:6px;
   cursor:pointer;backdrop-filter:blur(4px);display:none;pointer-events:auto;transition:opacity 0.3s;}
-#hud{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',monospace;font-size:13px;color:#999;pointer-events:none;text-align:center;line-height:1.8;}
+#hud{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',monospace;font-size:13px;color:#999;pointer-events:none;text-align:center;line-height:1.8;}
 #hud kbd{display:inline-block;padding:1px 6px;background:#f0f0f0;border:1px solid #ddd;border-radius:3px;font-family:monospace;font-size:12px;color:#555;}
 #gauges{position:fixed;bottom:30px;right:30px;pointer-events:none;display:flex;gap:0px;align-items:flex-end;}
 #fuelBar{width:28px;height:160px;display:flex;flex-direction:column-reverse;gap:2px;padding:4px 3px;
@@ -79,7 +79,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 #checkpointMsg{position:fixed;top:40%;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',sans-serif;
   font-size:15px;color:#fff;text-align:center;pointer-events:none;z-index:50;display:none;
   background:rgba(0,0,0,0.6);padding:8px 18px;border-radius:8px;}
-#lightControls{position:fixed;bottom:230px;right:30px;display:flex;gap:8px;z-index:10;}
+#lightControls{position:fixed;top:calc(50% + 130px);right:30px;display:flex;gap:8px;z-index:10;}
 #lightControls button{
   padding:6px 14px;font-family:'Noto Sans SC',monospace;font-size:12px;font-weight:600;
   border:2px solid rgba(255,255,255,0.3);border-radius:6px;cursor:pointer;
@@ -90,7 +90,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 #lightControls button.active{background:rgba(60,120,200,0.6);border-color:rgba(100,180,255,0.8);color:#fff;}
 #flipMsg{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Noto Sans SC',sans-serif;font-size:22px;font-weight:700;color:#d32f2f;text-align:center;pointer-events:none;opacity:0;transition:opacity 0.3s;line-height:1.8;text-shadow:0 1px 4px rgba(0,0,0,0.1);}
 
-#minimap{position:fixed;top:16px;left:16px;pointer-events:none;z-index:20;}
+#minimap{position:fixed;top:max(16px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left));pointer-events:none;z-index:20;}
 #minimap canvas{border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);box-shadow:0 2px 12px rgba(0,0,0,0.4);}
 #minimapLabel{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',monospace;
   font-size:10px;color:rgba(255,255,255,0.9);text-shadow:0 1px 4px rgba(0,0,0,0.8);white-space:nowrap;}
@@ -101,7 +101,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 .inv-slot.filled{border-color:rgba(255,200,50,0.6);box-shadow:0 0 12px rgba(255,200,50,0.2);}
 .inv-slot .inv-icon{font-size:24px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));pointer-events:none;}
 .fly-item{position:fixed;z-index:100;font-size:28px;pointer-events:none;transition:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));}
-#coinBar{position:fixed;top:18px;right:90px;display:flex;align-items:center;gap:6px;font-family:'Noto Sans SC',monospace;
+#coinBar{position:fixed;top:max(18px,env(safe-area-inset-top));right:max(90px,env(safe-area-inset-right));display:flex;align-items:center;gap:6px;font-family:'Noto Sans SC',monospace;
   font-size:16px;color:#ffd700;text-shadow:0 1px 3px rgba(0,0,0,0.6);pointer-events:none;z-index:20;}
 #coinBar .coin-icon{width:48px;height:48px;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));}
 #coinBar .coin-count{font-weight:bold;}
@@ -134,14 +134,55 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 #mBtnBrake{width:72px;height:72px;border-color:rgba(255,80,80,0.4);}
 #mBtnBrake.active{background:rgba(255,60,60,0.3);border-color:rgba(255,80,80,0.7);}
 
-/* 右侧次要按钮（重置/换车）放在上方 */
-#mobileBtnsSecondary{position:fixed;right:20px;top:50%;transform:translateY(-50%);display:flex;
-  flex-direction:column;gap:8px;z-index:60;touch-action:none;}
+/* 右侧次要按钮（重置/换车）紧贴主按钮上方 */
+#mobileBtnsSecondary{position:fixed;right:16px;bottom:260px;display:flex;
+  flex-direction:column;gap:8px;align-items:center;z-index:60;touch-action:none;}
 .m-btn-sm{width:44px;height:44px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);
   background:rgba(0,0,0,0.3);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;
   font-family:'Noto Sans SC',sans-serif;font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);
   touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;}
 .m-btn-sm.active{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.4);color:rgba(255,255,255,0.8);}
+
+/* ===== 响应式缩放 — 桌面小窗 ===== */
+@media (max-height:650px) {
+  #gauges{transform:scale(0.8);transform-origin:right bottom;}
+}
+@media (max-height:550px) {
+  #gauges{transform:scale(0.65);transform-origin:right bottom;}
+}
+@media (max-width:1000px) {
+  .ach-slot{width:42px;height:32px;}
+}
+@media (max-width:800px) {
+  .ach-slot{width:36px;height:28px;}
+  #achieveWrap{bottom:60px;}
+}
+
+/* ===== 响应式缩放 — 手机横屏 ===== */
+@media (max-height:420px) and (orientation:landscape) {
+  .m-btn{width:50px;height:50px;font-size:10px;}
+  .m-btn .m-icon{font-size:18px;}
+  .m-btn .m-label{font-size:8px;}
+  #mBtnBrake{width:58px;height:58px;}
+  .m-btn-sm{width:36px;height:36px;font-size:9px;}
+  #mobileBtns{gap:8px;right:max(12px,env(safe-area-inset-right));}
+  #mobileBtnsSecondary{bottom:226px;right:max(12px,env(safe-area-inset-right));}
+  #joystickZone{width:130px;height:130px;left:max(16px,env(safe-area-inset-left));bottom:20px;}
+  #joystickBase{width:110px;height:110px;}
+  #joystickThumb{width:48px;height:48px;}
+}
+@media (max-height:375px) and (orientation:landscape) {
+  .m-btn{width:44px;height:44px;font-size:9px;}
+  .m-btn .m-icon{font-size:16px;}
+  .m-btn .m-label{display:none;}
+  #mBtnBrake{width:52px;height:52px;}
+  .m-btn-sm{width:32px;height:32px;font-size:8px;}
+  #mobileBtns{gap:6px;bottom:20px;}
+  #mobileBtnsSecondary{bottom:188px;gap:6px;}
+  #joystickZone{width:110px;height:110px;left:max(10px,env(safe-area-inset-left));bottom:14px;}
+  #joystickBase{width:95px;height:95px;}
+  #joystickThumb{width:42px;height:42px;}
+}
 </style>
 </head>
 <body>
@@ -2250,6 +2291,35 @@ function toggleDiffLock() {
 window.toggleDiffLock = toggleDiffLock;
 
 const keys = {};
+
+// ---- 车辆重置（提取为独立函数，手机端和键盘端共用）----
+function resetVehicle() {
+  if (typeof gameOver !== 'undefined' && gameOver) { resetGame(); return; }
+  car.bodyRoll = 0; car.rollVel = 0;
+  car.bodyPitch = 0; car.pitchVel = 0;
+  car.isInFlip = false;
+  car.springFL = car.springFR = car.springBL = car.springBR = 0;
+  car.springVelFL = car.springVelFR = car.springVelBL = car.springVelBR = 0;
+  car.loadTransferPitch = 0; car.loadTransferRoll = 0;
+  car.speed = 0; car.gear = 0; car.rpm = RPM_IDLE; car.rollStoppedTime = 0;
+  // 寻找附近最平坦的位置重生
+  let bestX = car.pos.x, bestZ = car.pos.z, bestSlope = Infinity;
+  const searchR = 15, searchStep = 3;
+  for (let dx = -searchR; dx <= searchR; dx += searchStep) {
+    for (let dz = -searchR; dz <= searchR; dz += searchStep) {
+      const tx = car.pos.x + dx, tz = car.pos.z + dz;
+      if (typeof getWaterDepth === 'function' && getWaterDepth(tx, tz) > 0.1) continue;
+      const eps = 1.0;
+      const hL = getTerrainHeight(tx - eps, tz), hR = getTerrainHeight(tx + eps, tz);
+      const hF = getTerrainHeight(tx, tz - eps), hB = getTerrainHeight(tx, tz + eps);
+      const slope = Math.abs(hR - hL) / (2 * eps) + Math.abs(hB - hF) / (2 * eps);
+      if (slope < bestSlope) { bestSlope = slope; bestX = tx; bestZ = tz; }
+    }
+  }
+  car.pos.x = bestX; car.pos.z = bestZ;
+  if (typeof towState !== 'undefined' && towState.active) endTow(false);
+}
+
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   resumeAudio(); // 首次按键时激活音频（浏览器要求用户交互）
@@ -2261,48 +2331,8 @@ document.addEventListener('keydown', e => {
   }
   // L 键切换差速锁
   if (e.code === 'KeyL') toggleDiffLock();
-  // R 键重置（随时生效，不仅是翻车时）
-  if (e.code === 'KeyR') {
-    if (typeof gameOver !== 'undefined' && gameOver) {
-      resetGame(); return;
-    }
-    // 重置车辆状态
-    car.bodyRoll = 0; car.rollVel = 0;
-    car.bodyPitch = 0; car.pitchVel = 0;
-    car.isInFlip = false;
-    car.springFL = car.springFR = car.springBL = car.springBR = 0;
-    car.springVelFL = car.springVelFR = car.springVelBL = car.springVelBR = 0;
-    car.loadTransferPitch = 0; car.loadTransferRoll = 0;
-    car.speed = 0; car.gear = 0; car.rpm = RPM_IDLE; car.rollStoppedTime = 0;
-    // 寻找附近最平坦的位置重生
-    let bestX = car.pos.x, bestZ = car.pos.z, bestSlope = Infinity;
-    const searchR = 15; // 搜索半径15m
-    const searchStep = 3;
-    for (let dx = -searchR; dx <= searchR; dx += searchStep) {
-      for (let dz = -searchR; dz <= searchR; dz += searchStep) {
-        const tx = car.pos.x + dx, tz = car.pos.z + dz;
-        // 排除水下位置
-        if (typeof getWaterDepth === 'function' && getWaterDepth(tx, tz) > 0.1) continue;
-        // 计算坡度（用四点差分）
-        const eps = 1.0;
-        const hC = getTerrainHeight(tx, tz);
-        const hL = getTerrainHeight(tx - eps, tz);
-        const hR = getTerrainHeight(tx + eps, tz);
-        const hF = getTerrainHeight(tx, tz - eps);
-        const hB = getTerrainHeight(tx, tz + eps);
-        const slopeX = Math.abs(hR - hL) / (2 * eps);
-        const slopeZ = Math.abs(hB - hF) / (2 * eps);
-        const slope = slopeX + slopeZ;
-        if (slope < bestSlope) {
-          bestSlope = slope; bestX = tx; bestZ = tz;
-        }
-      }
-    }
-    car.pos.x = bestX;
-    car.pos.z = bestZ;
-    // 断开拖拽绳
-    if (typeof towState !== 'undefined' && towState.active) endTow(false);
-  }
+  // R 键重置
+  if (e.code === 'KeyR') resetVehicle();
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 // 窗口失焦时清理所有按键状态（防止按键粘住）
@@ -3848,7 +3878,10 @@ UI.gauges = {
   layout(mobile) {
     const g = this.els.gauges;
     if (mobile) {
-      g.style.bottom = '20px'; g.style.right = 'auto'; g.style.left = '50%'; g.style.transform = 'translateX(-50%) scale(0.6)'; g.style.transformOrigin = 'center bottom';
+      const h = window.innerHeight;
+      const sc = h < 375 ? 0.45 : h < 420 ? 0.5 : 0.6;
+      g.style.bottom = '10px'; g.style.right = 'auto'; g.style.left = '50%';
+      g.style.transform = 'translateX(-40%) scale(' + sc + ')'; g.style.transformOrigin = 'center bottom';
     } else {
       g.style.bottom = '30px'; g.style.right = '30px'; g.style.left = ''; g.style.transform = ''; g.style.transformOrigin = '';
     }
@@ -4439,9 +4472,10 @@ UI.inventory = {
   layout(mobile) {
     const w = this.els.wrap;
     if (mobile) {
-      // 手机端：物品栏移到左上角小地图下方，水平排列
+      // 手机端：小地图下方，水平排列
       w.style.position = 'fixed';
-      w.style.right = 'auto'; w.style.top = 'auto'; w.style.left = '16px'; w.style.bottom = '190px';
+      w.style.right = 'auto'; w.style.top = '140px'; w.style.left = 'max(16px, env(safe-area-inset-left))';
+      w.style.bottom = 'auto';
       w.style.transform = 'none'; w.style.transformOrigin = '';
       w.style.flexDirection = 'row'; w.style.gap = '6px';
     } else {
@@ -5031,7 +5065,7 @@ UI.coinBar = {
     const b = this.els.bar;
     if (!b) return;
     if (mobile) {
-      b.style.right = '16px'; b.style.top = '12px'; b.style.fontSize = '14px';
+      b.style.right = 'max(16px, env(safe-area-inset-right))'; b.style.top = 'max(12px, env(safe-area-inset-top))'; b.style.fontSize = '14px';
     } else {
       b.style.right = ''; b.style.top = ''; b.style.fontSize = '';
     }
@@ -6288,10 +6322,21 @@ UI.achieveBar = {
   },
   layout(mobile) {
     const w = this.els.wrap;
+    const bar = this.els.bar;
     if (mobile) {
-      w.style.transform = 'scale(0.75)'; w.style.transformOrigin = 'bottom left';
+      // 手机端：移到顶部居中（小地图和金币栏之间）
+      w.style.position = 'fixed';
+      w.style.bottom = 'auto'; w.style.left = '50%'; w.style.top = 'max(8px, env(safe-area-inset-top))';
+      w.style.transform = 'translateX(-50%)'; w.style.transformOrigin = '';
+      // 成就栏标题隐藏（手机端省空间）
+      const title = document.getElementById('achieveTitle');
+      if (title) title.style.display = 'none';
+      // slot 缩小通过 @media 处理，这里只做定位
     } else {
+      w.style.position = ''; w.style.bottom = ''; w.style.left = ''; w.style.top = '';
       w.style.transform = ''; w.style.transformOrigin = '';
+      const title = document.getElementById('achieveTitle');
+      if (title) title.style.display = '';
     }
   },
 };
@@ -6597,7 +6642,7 @@ UI.touchControls = {
     // 差速锁
     this._bindTap(this.els.btnLock, () => { toggleDiffLock(); });
     // 重置
-    this._bindTap(this.els.btnReset, () => { keys['KeyR'] = true; setTimeout(() => { keys['KeyR'] = false; }, 100); });
+    this._bindTap(this.els.btnReset, () => { resetVehicle(); });
     // 换车
     this._bindTap(this.els.btnSwitch, () => {
       const ids = Object.keys(VEHICLES);
@@ -6748,6 +6793,7 @@ UI.hud = {
   },
   layout(mobile) {
     if (this.els.wrap) this.els.wrap.style.display = mobile ? 'none' : '';
+    if (this.els.fpsPanel) this.els.fpsPanel.style.display = mobile ? 'none' : '';
   },
 };
 UI.hud.init();
