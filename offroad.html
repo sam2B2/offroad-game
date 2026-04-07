@@ -6350,34 +6350,12 @@ updateAchieveBarUI();
 let gamePausedForVideo = false;
 let _animFrameId = null;
 let _videoStartRect = null;  // 打开时缩略图的屏幕位置（关闭动画用）
-let _videoThumbUrl = null;   // 缩略图 URL（过渡动画背景图）
-
-// 辅助：显示视频并播放
-function _showAndPlayVideo() {
-  const overlay = document.getElementById('videoOverlay');
-  const defaultPlayer = document.getElementById('videoPlayer');
-  const slot = _currentVideoUrl ? videoSlots.get(_currentVideoUrl) : null;
-  if (slot) {
-    defaultPlayer.style.display = 'none';
-    slot.video.controls = true; slot.video.playsInline = true;
-    slot.video.style.display = '';
-    slot.video.style.maxWidth = '85%'; slot.video.style.maxHeight = '80%';
-    slot.video.style.borderRadius = '8px';
-    slot.video.style.boxShadow = '0 4px 30px rgba(0,0,0,0.5)';
-    overlay.appendChild(slot.video);
-    if (slot.lastTime > 0) slot.video.currentTime = slot.lastTime;
-    slot.video.play().catch(() => {});
-  } else {
-    defaultPlayer.style.display = '';
-    defaultPlayer.src = _currentVideoUrl;
-    defaultPlayer.play().catch(() => {});
-  }
-}
 
 window.playVideo = function(src, slotEl, thumbUrl) {
   const decodedSrc = decodeURI(src);
   const slot = videoSlots.get(decodedSrc);
   const overlay = document.getElementById('videoOverlay');
+  const defaultPlayer = document.getElementById('videoPlayer');
 
   pauseOtherPreloads(decodedSrc);
   _currentVideoUrl = decodedSrc;
@@ -6385,51 +6363,78 @@ window.playVideo = function(src, slotEl, thumbUrl) {
   if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
   if (_animFrameId !== null) { cancelAnimationFrame(_animFrameId); _animFrameId = null; }
 
-  // ---- 放大过渡动画 ----
-  const startRect = slotEl ? slotEl.getBoundingClientRect() : null;
-  if (startRect && thumbUrl) {
-    _videoStartRect = { left: startRect.left, top: startRect.top, width: startRect.width, height: startRect.height };
-    _videoThumbUrl = decodeURI(thumbUrl);
+  // 获取要播放的 video 元素
+  let vid;
+  if (slot) {
+    defaultPlayer.style.display = 'none';
+    vid = slot.video;
+    vid.controls = true; vid.playsInline = true;
+    if (slot.lastTime > 0) vid.currentTime = slot.lastTime;
+  } else {
+    vid = defaultPlayer;
+    vid.style.display = '';
+    vid.src = decodedSrc;
+  }
 
-    // overlay 淡入背景（视频内容先隐藏）
+  // ---- 放大过渡动画：直接用 <video> 标签做动画载体 ----
+  const startRect = slotEl ? slotEl.getBoundingClientRect() : null;
+  if (startRect) {
+    _videoStartRect = { left: startRect.left, top: startRect.top, width: startRect.width, height: startRect.height };
+
+    // overlay 背景淡入
     overlay.style.display = 'flex';
     overlay.style.background = 'rgba(0,0,0,0)';
     overlay.style.transition = 'background 0.3s';
-    const children = overlay.querySelectorAll(':scope > *');
-    children.forEach(c => { c.style.visibility = 'hidden'; });
+    // 隐藏关闭按钮（动画期间）
+    const closeBtn = overlay.querySelector('.vo-close');
+    if (closeBtn) closeBtn.style.opacity = '0';
 
-    // 创建过渡元素（缩略图克隆体）
-    const trans = document.createElement('div');
-    trans.style.cssText = `position:fixed;z-index:310;overflow:hidden;pointer-events:none;
-      background:url('${_videoThumbUrl}') center/cover no-repeat;border-radius:6px;
+    // video 设置为 fixed 定位，放在缩略图位置
+    vid.style.cssText = `position:fixed;z-index:310;
       left:${startRect.left}px;top:${startRect.top}px;
       width:${startRect.width}px;height:${startRect.height}px;
+      border-radius:6px;object-fit:cover;
       transition:all 0.3s cubic-bezier(0.4,0,0.2,1);`;
-    document.body.appendChild(trans);
+    vid.style.display = '';
+    document.body.appendChild(vid);
+    vid.play().catch(() => {});
 
-    // 下一帧触发过渡（小 → 大）
+    // 计算最终播放尺寸（保持视频比例，不超过 85%×80%）
+    const maxW = window.innerWidth * 0.85, maxH = window.innerHeight * 0.80;
+
+    // 下一帧触发过渡（缩略图位置 → 居中播放位置）
     requestAnimationFrame(() => {
       overlay.style.background = 'rgba(0,0,0,0.8)';
-      const endW = window.innerWidth * 0.85, endH = window.innerHeight * 0.80;
-      trans.style.left = (window.innerWidth - endW) / 2 + 'px';
-      trans.style.top = (window.innerHeight - endH) / 2 + 'px';
-      trans.style.width = endW + 'px';
-      trans.style.height = endH + 'px';
-      trans.style.borderRadius = '8px';
+      vid.style.left = (window.innerWidth - maxW) / 2 + 'px';
+      vid.style.top = (window.innerHeight - maxH) / 2 + 'px';
+      vid.style.width = maxW + 'px';
+      vid.style.height = maxH + 'px';
+      vid.style.borderRadius = '8px';
+      vid.style.objectFit = 'contain';
     });
 
-    // 动画结束：移除过渡元素，显示真实视频
+    // 动画结束：将 video 归入 overlay 内，恢复正常布局
     setTimeout(() => {
-      trans.remove();
+      vid.style.cssText = '';
+      vid.style.display = '';
+      vid.style.maxWidth = '85%'; vid.style.maxHeight = '80%';
+      vid.style.borderRadius = '8px';
+      vid.style.boxShadow = '0 4px 30px rgba(0,0,0,0.5)';
+      vid.controls = true;
+      overlay.appendChild(vid);
       overlay.style.transition = ''; overlay.style.background = '';
-      children.forEach(c => { c.style.visibility = ''; });
-      _showAndPlayVideo();
+      if (closeBtn) closeBtn.style.opacity = '';
     }, 310);
   } else {
     // 无动画 fallback
-    _videoStartRect = null; _videoThumbUrl = null;
+    _videoStartRect = null;
+    vid.style.display = '';
+    vid.style.maxWidth = '85%'; vid.style.maxHeight = '80%';
+    vid.style.borderRadius = '8px';
+    vid.style.boxShadow = '0 4px 30px rgba(0,0,0,0.5)';
+    overlay.appendChild(vid);
     overlay.style.display = 'flex';
-    _showAndPlayVideo();
+    vid.play().catch(() => {});
   }
 };
 
@@ -6437,55 +6442,60 @@ window.closeVideo = function(e) {
   if (e && e.target.tagName === 'VIDEO') return;
   const overlay = document.getElementById('videoOverlay');
   const slot = _currentVideoUrl ? videoSlots.get(_currentVideoUrl) : null;
+  const vid = slot ? slot.video : document.getElementById('videoPlayer');
 
   // 保存播放位置
   if (slot) {
-    slot.lastTime = slot.video.ended ? 0 : slot.video.currentTime;
-    slot.video.pause();
-  } else {
-    const dp = document.getElementById('videoPlayer');
-    dp.pause(); dp.src = '';
+    slot.lastTime = vid.ended ? 0 : vid.currentTime;
   }
+  vid.pause();
 
   // ---- 缩小过渡动画 ----
-  if (_videoStartRect && _videoThumbUrl) {
-    // 隐藏视频内容
-    const children = overlay.querySelectorAll(':scope > *');
-    children.forEach(c => { c.style.visibility = 'hidden'; });
-    if (slot) { slot.video.style.display = 'none'; slot.video.controls = false; }
+  if (_videoStartRect) {
+    // 隐藏关闭按钮
+    const closeBtn = overlay.querySelector('.vo-close');
+    if (closeBtn) closeBtn.style.opacity = '0';
 
-    // 创建过渡元素从屏幕中央开始
-    const curW = window.innerWidth * 0.85, curH = window.innerHeight * 0.80;
-    const trans = document.createElement('div');
-    trans.style.cssText = `position:fixed;z-index:310;overflow:hidden;pointer-events:none;
-      background:url('${_videoThumbUrl}') center/cover no-repeat;border-radius:8px;
-      left:${(window.innerWidth - curW) / 2}px;top:${(window.innerHeight - curH) / 2}px;
-      width:${curW}px;height:${curH}px;
+    // 获取 video 当前屏幕位置
+    const curRect = vid.getBoundingClientRect();
+
+    // 将 video 从 overlay 中取出，设为 fixed 定位在当前位置
+    vid.style.cssText = `position:fixed;z-index:310;
+      left:${curRect.left}px;top:${curRect.top}px;
+      width:${curRect.width}px;height:${curRect.height}px;
+      border-radius:8px;object-fit:contain;
       transition:all 0.3s cubic-bezier(0.4,0,0.2,1);`;
-    document.body.appendChild(trans);
+    document.body.appendChild(vid);
 
-    // overlay 背景淡出 + 过渡元素缩回缩略图位置
+    // overlay 背景淡出
     overlay.style.transition = 'background 0.3s';
+
+    // 下一帧触发缩小过渡
     requestAnimationFrame(() => {
       overlay.style.background = 'rgba(0,0,0,0)';
-      trans.style.left = _videoStartRect.left + 'px';
-      trans.style.top = _videoStartRect.top + 'px';
-      trans.style.width = _videoStartRect.width + 'px';
-      trans.style.height = _videoStartRect.height + 'px';
-      trans.style.borderRadius = '6px';
+      vid.style.left = _videoStartRect.left + 'px';
+      vid.style.top = _videoStartRect.top + 'px';
+      vid.style.width = _videoStartRect.width + 'px';
+      vid.style.height = _videoStartRect.height + 'px';
+      vid.style.borderRadius = '6px';
+      vid.style.objectFit = 'cover';
+      vid.style.opacity = '0.5';
     });
 
     // 动画结束：清理
     setTimeout(() => {
-      trans.remove();
+      vid.style.cssText = '';
+      vid.style.display = 'none';
+      vid.controls = false;
       overlay.style.transition = ''; overlay.style.background = '';
       overlay.style.display = 'none';
-      children.forEach(c => { c.style.visibility = ''; });
+      if (closeBtn) closeBtn.style.opacity = '';
       _finishCloseVideo();
     }, 310);
   } else {
     // 无动画
-    if (slot) { slot.video.style.display = 'none'; slot.video.controls = false; }
+    vid.style.display = 'none'; vid.controls = false;
+    if (!slot) { vid.src = ''; }
     overlay.style.display = 'none';
     _finishCloseVideo();
   }
@@ -6494,7 +6504,7 @@ window.closeVideo = function(e) {
 function _finishCloseVideo() {
   gamePausedForVideo = false;
   _currentVideoUrl = null;
-  _videoStartRect = null; _videoThumbUrl = null;
+  _videoStartRect = null;
   if (audioCtx && audioCtx.state === 'suspended' && audioResumed) audioCtx.resume();
   if (_animFrameId === null) { clock.getDelta(); animate(); }
   resumeAllPreloads();
