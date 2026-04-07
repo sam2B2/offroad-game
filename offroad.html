@@ -6399,16 +6399,20 @@ window.playVideo = function(src, slotEl, thumbUrl) {
     document.body.appendChild(vid);
     vid.play().catch(() => {});
 
-    // 计算最终播放尺寸（保持视频比例，不超过 85%×80%）
-    const maxW = window.innerWidth * 0.85, maxH = window.innerHeight * 0.80;
-
-    // 下一帧触发过渡（缩略图位置 → 居中播放位置）
+    // 下一帧触发过渡（缩略图位置 → 按视频宽高比计算的最终播放尺寸）
     requestAnimationFrame(() => {
       overlay.style.background = 'rgba(0,0,0,0.8)';
-      vid.style.left = (window.innerWidth - maxW) / 2 + 'px';
-      vid.style.top = (window.innerHeight - maxH) / 2 + 'px';
-      vid.style.width = maxW + 'px';
-      vid.style.height = maxH + 'px';
+      // 按视频实际宽高比计算最终尺寸（避免动画结束时跳变）
+      const vw = vid.videoWidth || 16, vh = vid.videoHeight || 9;
+      const ratio = vw / vh;
+      const maxW = window.innerWidth * 0.85, maxH = window.innerHeight * 0.80;
+      let endW, endH;
+      if (maxW / maxH > ratio) { endH = maxH; endW = maxH * ratio; }
+      else { endW = maxW; endH = maxW / ratio; }
+      vid.style.left = (window.innerWidth - endW) / 2 + 'px';
+      vid.style.top = (window.innerHeight - endH) / 2 + 'px';
+      vid.style.width = endW + 'px';
+      vid.style.height = endH + 'px';
       vid.style.borderRadius = '8px';
       vid.style.objectFit = 'contain';
     });
