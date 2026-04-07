@@ -72,10 +72,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
   border-left:12px solid rgba(255,255,255,0.8);border-top:7px solid transparent;border-bottom:7px solid transparent;
   filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));pointer-events:none;}
 #videoOverlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);
-  z-index:300;display:none;align-items:center;justify-content:center;}
-#videoOverlay .vo-close{position:absolute;top:20px;right:30px;color:#fff;font-size:28px;cursor:pointer;z-index:301;
-  width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(0,0,0,0.5);}
-#videoOverlay video{max-width:85%;max-height:80%;border-radius:8px;box-shadow:0 4px 30px rgba(0,0,0,0.5);}
+  z-index:300;display:none;}
+#videoWrap{position:absolute;top:0;left:0;width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;}
+#videoInner{position:relative;display:inline-flex;}
+#videoInner .vo-close{position:absolute;top:-10px;right:-10px;color:#fff;font-size:22px;cursor:pointer;z-index:301;
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;
+  background:rgba(0,0,0,0.6);border:1.5px solid rgba(255,255,255,0.3);backdrop-filter:blur(4px);}
+#videoInner .vo-close:hover{background:rgba(255,60,60,0.7);border-color:rgba(255,100,100,0.5);}
+#videoOverlay video{max-width:85vw;max-height:80vh;border-radius:8px;box-shadow:0 4px 30px rgba(0,0,0,0.5);}
 #checkpointMsg{position:fixed;top:40%;left:50%;transform:translateX(-50%);font-family:'Noto Sans SC',sans-serif;
   font-size:15px;color:#fff;text-align:center;pointer-events:none;z-index:50;display:none;
   background:rgba(0,0,0,0.6);padding:8px 18px;border-radius:8px;}
@@ -250,7 +255,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
   transition:opacity 0.4s;backdrop-filter:blur(6px);"></div>
 <div id="checkpointMsg"></div>
 <div id="achieveWrap"><div id="achieveTitle"><span class="at-icon">📷</span> 打卡成就</div><div id="achieveBar"></div></div>
-<div id="videoOverlay" onclick="closeVideo(event)"><div class="vo-close" onclick="closeVideo(event)">✕</div><video id="videoPlayer" controls></video></div>
+<div id="videoOverlay" onclick="closeVideo(event)"><div id="videoWrap"><div id="videoInner"><video id="videoPlayer" controls></video><div class="vo-close" onclick="closeVideo(event)">✕</div></div></div></div>
 <div id="coinBar"><svg class="coin-icon" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffd700" stroke="#b8860b" stroke-width="1.5"/><polygon points="12,3.5 13.8,9.2 19.8,9.2 14.9,12.8 16.7,18.5 12,14.8 7.3,18.5 9.1,12.8 4.2,9.2 10.2,9.2" fill="#b8860b"/></svg><span class="coin-count" id="coinCount">0</span></div>
 <div id="inventory">
   <div class="inv-slot" id="invSlot0"><span class="inv-icon"></span></div>
@@ -6355,6 +6360,8 @@ window.playVideo = function(src, slotEl, thumbUrl) {
   const decodedSrc = decodeURI(src);
   const slot = videoSlots.get(decodedSrc);
   const overlay = document.getElementById('videoOverlay');
+  const wrap = document.getElementById('videoWrap');
+  const inner = document.getElementById('videoInner');
   const defaultPlayer = document.getElementById('videoPlayer');
 
   pauseOtherPreloads(decodedSrc);
@@ -6363,7 +6370,7 @@ window.playVideo = function(src, slotEl, thumbUrl) {
   if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
   if (_animFrameId !== null) { cancelAnimationFrame(_animFrameId); _animFrameId = null; }
 
-  // 准备 video 元素（放入 overlay，原始布局方式）
+  // 准备 video 元素（放入 videoInner）
   let vid;
   if (slot) {
     defaultPlayer.style.display = 'none';
@@ -6371,10 +6378,7 @@ window.playVideo = function(src, slotEl, thumbUrl) {
     vid.style.cssText = '';
     vid.controls = true; vid.playsInline = true;
     vid.style.display = '';
-    vid.style.maxWidth = '85%'; vid.style.maxHeight = '80%';
-    vid.style.borderRadius = '8px';
-    vid.style.boxShadow = '0 4px 30px rgba(0,0,0,0.5)';
-    overlay.appendChild(vid);
+    inner.insertBefore(vid, inner.querySelector('.vo-close'));
     if (slot.lastTime > 0) vid.currentTime = slot.lastTime;
   } else {
     vid = defaultPlayer;
@@ -6382,44 +6386,43 @@ window.playVideo = function(src, slotEl, thumbUrl) {
     vid.src = decodedSrc;
   }
 
-  // ---- 从缩略图位置飞入的过渡动画（transform 位移+缩放）----
+  // ---- 过渡动画：overlay 背景淡入 + videoWrap 位移缩放 ----
   const startRect = slotEl ? slotEl.getBoundingClientRect() : null;
   if (startRect) {
     _videoStartRect = { left: startRect.left, top: startRect.top, width: startRect.width, height: startRect.height };
-
-    // 计算 overlay 中央目标位置（视频最终会被 flex 居中到这里）
     const endCX = window.innerWidth / 2, endCY = window.innerHeight / 2;
-    // 缩略图中心
-    const startCX = startRect.left + startRect.width / 2;
-    const startCY = startRect.top + startRect.height / 2;
-    // 位移量
+    const startCX = startRect.left + startRect.width / 2, startCY = startRect.top + startRect.height / 2;
     const dx = startCX - endCX, dy = startCY - endCY;
-    // 缩放量（缩略图宽度 / 视频窗口大致宽度）
     const sc = Math.max(0.05, startRect.width / (window.innerWidth * 0.6));
 
-    // 初始状态：overlay 从缩略图位置开始（缩小+位移）
-    overlay.style.display = 'flex';
+    // overlay 背景：原地淡入
+    overlay.style.display = 'block';
     overlay.style.opacity = '0';
-    overlay.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
     overlay.style.transition = 'none';
-    // 强制布局刷新
+    // videoWrap：从缩略图位置开始
+    wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
+    wrap.style.opacity = '0';
+    wrap.style.transition = 'none';
+    // 强制布局
     overlay.offsetHeight;
-    // 触发过渡到最终位置
-    overlay.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.3s';
+    // 触发过渡
+    overlay.style.transition = 'opacity 0.3s';
     overlay.style.opacity = '1';
-    overlay.style.transform = 'translate(0,0) scale(1)';
+    wrap.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s';
+    wrap.style.transform = 'translate(0,0) scale(1)';
+    wrap.style.opacity = '1';
 
     vid.play().catch(() => {});
 
-    // 动画结束：清理 transition
     setTimeout(() => {
       overlay.style.transition = '';
-      overlay.style.transform = '';
+      wrap.style.transition = ''; wrap.style.transform = '';
     }, 310);
   } else {
-    // 无动画 fallback
     _videoStartRect = null;
-    overlay.style.display = 'flex';
+    overlay.style.display = 'block';
+    overlay.style.opacity = '1';
+    wrap.style.transform = ''; wrap.style.opacity = '1';
     vid.play().catch(() => {});
   }
 };
@@ -6427,14 +6430,13 @@ window.playVideo = function(src, slotEl, thumbUrl) {
 window.closeVideo = function(e) {
   if (e && e.target.tagName === 'VIDEO') return;
   const overlay = document.getElementById('videoOverlay');
+  const wrap = document.getElementById('videoWrap');
   const slot = _currentVideoUrl ? videoSlots.get(_currentVideoUrl) : null;
   const vid = slot ? slot.video : document.getElementById('videoPlayer');
 
-  // 保存播放位置
   if (slot) { slot.lastTime = vid.ended ? 0 : vid.currentTime; }
   vid.pause();
 
-  // ---- 飞回缩略图位置的过渡动画 ----
   if (_videoStartRect) {
     const endCX = window.innerWidth / 2, endCY = window.innerHeight / 2;
     const startCX = _videoStartRect.left + _videoStartRect.width / 2;
@@ -6442,12 +6444,17 @@ window.closeVideo = function(e) {
     const dx = startCX - endCX, dy = startCY - endCY;
     const sc = Math.max(0.05, _videoStartRect.width / (window.innerWidth * 0.6));
 
-    overlay.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.3s';
-    overlay.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
+    // overlay 背景：原地淡出
+    overlay.style.transition = 'opacity 0.3s';
     overlay.style.opacity = '0';
+    // videoWrap：缩回缩略图位置
+    wrap.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s';
+    wrap.style.transform = `translate(${dx}px, ${dy}px) scale(${sc})`;
+    wrap.style.opacity = '0';
 
     setTimeout(() => {
-      overlay.style.transition = ''; overlay.style.transform = ''; overlay.style.opacity = '';
+      overlay.style.transition = ''; overlay.style.opacity = '';
+      wrap.style.transition = ''; wrap.style.transform = ''; wrap.style.opacity = '';
       overlay.style.display = 'none';
       vid.style.display = 'none'; vid.controls = false;
       _finishCloseVideo();
