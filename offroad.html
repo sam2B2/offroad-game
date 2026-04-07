@@ -50,7 +50,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 #gameOverlay .go-title{font-size:32px;font-weight:bold;color:#e53935;margin-bottom:12px;}
 #gameOverlay .go-sub{font-size:18px;color:#ccc;margin-bottom:20px;}
 #gameOverlay .go-coins{font-size:24px;color:#ffd700;margin-bottom:24px;}
-#gameOverlay .go-hint{font-size:14px;color:#999;}
+#gameOverlay .go-btn{padding:12px 40px;font-family:'Noto Sans SC',sans-serif;font-size:16px;font-weight:600;
+  color:#fff;background:rgba(229,57,53,0.8);border:1.5px solid rgba(255,100,100,0.5);border-radius:10px;
+  cursor:pointer;outline:none;transition:all 0.2s;backdrop-filter:blur(4px);letter-spacing:1px;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+#gameOverlay .go-btn:hover{background:rgba(229,57,53,1);border-color:rgba(255,130,130,0.8);}
+#gameOverlay .go-btn:active{transform:scale(0.96);}
 #invTooltip{position:fixed;pointer-events:none;z-index:120;background:rgba(0,0,0,0.85);color:#eee;
   font-family:'Noto Sans SC',monospace;font-size:11px;padding:6px 10px;border-radius:6px;max-width:180px;
   line-height:1.5;display:none;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.1);}
@@ -243,7 +248,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
 </div>
 <div id="gameOverlay"><div class="go-title">油料耗尽</div><div class="go-sub">游戏失败</div>
   <div class="go-coins"><svg width="28" height="28" viewBox="0 0 24 24" style="vertical-align:middle;"><circle cx="12" cy="12" r="11" fill="#ffd700" stroke="#b8860b" stroke-width="1.5"/><polygon points="12,3.5 13.8,9.2 19.8,9.2 14.9,12.8 16.7,18.5 12,14.8 7.3,18.5 9.1,12.8 4.2,9.2 10.2,9.2" fill="#b8860b"/></svg> <span id="goCoins">0</span></div>
-  <div class="go-hint">按 <kbd style="padding:2px 8px;background:#555;border:1px solid #777;border-radius:3px;color:#fff;">R</kbd> 重置游戏</div></div>
+  <button class="go-btn" id="goRestartBtn">重新开始</button></div>
 <div id="invTooltip"></div>
 <div id="rescueMsg"></div>
 
@@ -2243,6 +2248,7 @@ UI.gameOver = {
   init() {
     this.els.overlay = document.getElementById('gameOverlay');
     this.els.goCoins = document.getElementById('goCoins');
+    document.getElementById('goRestartBtn').addEventListener('click', () => { resetGame(); });
   },
   show(coins) {
     this.els.goCoins.textContent = String(coins);
