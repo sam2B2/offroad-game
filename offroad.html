@@ -6417,15 +6417,10 @@ window.playVideo = function(src, slotEl, thumbUrl) {
       vid.style.objectFit = 'contain';
     });
 
-    // 动画结束：将 video 归入 overlay 内，恢复正常布局
+    // 动画结束：保持 fixed 定位不动（避免移回 overlay 触发重布局闪烁）
     setTimeout(() => {
-      vid.style.cssText = '';
-      vid.style.display = '';
-      vid.style.maxWidth = '85%'; vid.style.maxHeight = '80%';
-      vid.style.borderRadius = '8px';
-      vid.style.boxShadow = '0 4px 30px rgba(0,0,0,0.5)';
+      vid.style.transition = 'none';
       vid.controls = true;
-      overlay.appendChild(vid);
       overlay.style.transition = ''; overlay.style.background = '';
       if (closeBtn) closeBtn.style.opacity = '';
     }, 310);
