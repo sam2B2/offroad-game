@@ -6312,7 +6312,7 @@ UI.achieveBar = {
     for (let i = 0; i < checkpointState.length; i++) {
       const cp = checkpointState[i];
       if (cp.unlocked) {
-        html += `<div class="ach-slot unlocked" id="achSlot${i}" onclick="playVideo('${encodeURI(cp.video)}')" title="${cp.name}">
+        html += `<div class="ach-slot unlocked" id="achSlot${i}" onclick="playVideo('${encodeURI(cp.video)}',this,'${encodeURI(cp.thumb)}')" title="${cp.name}">
           <img src="${encodeURI(cp.thumb)}"><div class="ach-play"></div></div>`;
       } else {
         html += `<div class="ach-slot locked" id="achSlot${i}" title="${cp.name}"></div>`;
@@ -6349,70 +6349,156 @@ updateAchieveBarUI();
 // 视频播放
 let gamePausedForVideo = false;
 let _animFrameId = null;
-window.playVideo = function(src) {
-  const decodedSrc = decodeURI(src);
-  const slot = videoSlots.get(decodedSrc);
+let _videoStartRect = null;  // 打开时缩略图的屏幕位置（关闭动画用）
+let _videoThumbUrl = null;   // 缩略图 URL（过渡动画背景图）
+
+// 辅助：显示视频并播放
+function _showAndPlayVideo() {
   const overlay = document.getElementById('videoOverlay');
   const defaultPlayer = document.getElementById('videoPlayer');
-
-  // 暂停其他视频的后台下载，全部带宽给当前视频
-  pauseOtherPreloads(decodedSrc);
-  _currentVideoUrl = decodedSrc;
-
+  const slot = _currentVideoUrl ? videoSlots.get(_currentVideoUrl) : null;
   if (slot) {
-    // 使用预创建的 <video> 标签（保留已缓冲数据 + 续播位置）
     defaultPlayer.style.display = 'none';
-    slot.video.controls = true;
-    slot.video.playsInline = true;
+    slot.video.controls = true; slot.video.playsInline = true;
     slot.video.style.display = '';
-    slot.video.style.maxWidth = '85%';
-    slot.video.style.maxHeight = '80%';
+    slot.video.style.maxWidth = '85%'; slot.video.style.maxHeight = '80%';
     slot.video.style.borderRadius = '8px';
     slot.video.style.boxShadow = '0 4px 30px rgba(0,0,0,0.5)';
     overlay.appendChild(slot.video);
-    // 续播：从上次关闭的位置开始
     if (slot.lastTime > 0) slot.video.currentTime = slot.lastTime;
-    overlay.style.display = 'flex';
     slot.video.play().catch(() => {});
   } else {
-    // fallback：videoSlots 还没初始化时，用默认 player
     defaultPlayer.style.display = '';
-    defaultPlayer.src = decodedSrc;
-    overlay.style.display = 'flex';
+    defaultPlayer.src = _currentVideoUrl;
     defaultPlayer.play().catch(() => {});
   }
+}
 
+window.playVideo = function(src, slotEl, thumbUrl) {
+  const decodedSrc = decodeURI(src);
+  const slot = videoSlots.get(decodedSrc);
+  const overlay = document.getElementById('videoOverlay');
+
+  pauseOtherPreloads(decodedSrc);
+  _currentVideoUrl = decodedSrc;
   gamePausedForVideo = true;
   if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
   if (_animFrameId !== null) { cancelAnimationFrame(_animFrameId); _animFrameId = null; }
+
+  // ---- 放大过渡动画 ----
+  const startRect = slotEl ? slotEl.getBoundingClientRect() : null;
+  if (startRect && thumbUrl) {
+    _videoStartRect = { left: startRect.left, top: startRect.top, width: startRect.width, height: startRect.height };
+    _videoThumbUrl = decodeURI(thumbUrl);
+
+    // overlay 淡入背景（视频内容先隐藏）
+    overlay.style.display = 'flex';
+    overlay.style.background = 'rgba(0,0,0,0)';
+    overlay.style.transition = 'background 0.3s';
+    const children = overlay.querySelectorAll(':scope > *');
+    children.forEach(c => { c.style.visibility = 'hidden'; });
+
+    // 创建过渡元素（缩略图克隆体）
+    const trans = document.createElement('div');
+    trans.style.cssText = `position:fixed;z-index:310;overflow:hidden;pointer-events:none;
+      background:url('${_videoThumbUrl}') center/cover no-repeat;border-radius:6px;
+      left:${startRect.left}px;top:${startRect.top}px;
+      width:${startRect.width}px;height:${startRect.height}px;
+      transition:all 0.3s cubic-bezier(0.4,0,0.2,1);`;
+    document.body.appendChild(trans);
+
+    // 下一帧触发过渡（小 → 大）
+    requestAnimationFrame(() => {
+      overlay.style.background = 'rgba(0,0,0,0.8)';
+      const endW = window.innerWidth * 0.85, endH = window.innerHeight * 0.80;
+      trans.style.left = (window.innerWidth - endW) / 2 + 'px';
+      trans.style.top = (window.innerHeight - endH) / 2 + 'px';
+      trans.style.width = endW + 'px';
+      trans.style.height = endH + 'px';
+      trans.style.borderRadius = '8px';
+    });
+
+    // 动画结束：移除过渡元素，显示真实视频
+    setTimeout(() => {
+      trans.remove();
+      overlay.style.transition = ''; overlay.style.background = '';
+      children.forEach(c => { c.style.visibility = ''; });
+      _showAndPlayVideo();
+    }, 310);
+  } else {
+    // 无动画 fallback
+    _videoStartRect = null; _videoThumbUrl = null;
+    overlay.style.display = 'flex';
+    _showAndPlayVideo();
+  }
 };
+
 window.closeVideo = function(e) {
   if (e && e.target.tagName === 'VIDEO') return;
   const overlay = document.getElementById('videoOverlay');
+  const slot = _currentVideoUrl ? videoSlots.get(_currentVideoUrl) : null;
 
   // 保存播放位置
-  const slot = _currentVideoUrl ? videoSlots.get(_currentVideoUrl) : null;
   if (slot) {
-    // 播放完毕 → 重置位置（下次从头播放）；未播完 → 记录位置（下次续播）
     slot.lastTime = slot.video.ended ? 0 : slot.video.currentTime;
     slot.video.pause();
-    slot.video.style.display = 'none';
-    slot.video.controls = false;
   } else {
-    // fallback player
-    const defaultPlayer = document.getElementById('videoPlayer');
-    defaultPlayer.pause(); defaultPlayer.src = '';
+    const dp = document.getElementById('videoPlayer');
+    dp.pause(); dp.src = '';
   }
 
-  overlay.style.display = 'none';
+  // ---- 缩小过渡动画 ----
+  if (_videoStartRect && _videoThumbUrl) {
+    // 隐藏视频内容
+    const children = overlay.querySelectorAll(':scope > *');
+    children.forEach(c => { c.style.visibility = 'hidden'; });
+    if (slot) { slot.video.style.display = 'none'; slot.video.controls = false; }
+
+    // 创建过渡元素从屏幕中央开始
+    const curW = window.innerWidth * 0.85, curH = window.innerHeight * 0.80;
+    const trans = document.createElement('div');
+    trans.style.cssText = `position:fixed;z-index:310;overflow:hidden;pointer-events:none;
+      background:url('${_videoThumbUrl}') center/cover no-repeat;border-radius:8px;
+      left:${(window.innerWidth - curW) / 2}px;top:${(window.innerHeight - curH) / 2}px;
+      width:${curW}px;height:${curH}px;
+      transition:all 0.3s cubic-bezier(0.4,0,0.2,1);`;
+    document.body.appendChild(trans);
+
+    // overlay 背景淡出 + 过渡元素缩回缩略图位置
+    overlay.style.transition = 'background 0.3s';
+    requestAnimationFrame(() => {
+      overlay.style.background = 'rgba(0,0,0,0)';
+      trans.style.left = _videoStartRect.left + 'px';
+      trans.style.top = _videoStartRect.top + 'px';
+      trans.style.width = _videoStartRect.width + 'px';
+      trans.style.height = _videoStartRect.height + 'px';
+      trans.style.borderRadius = '6px';
+    });
+
+    // 动画结束：清理
+    setTimeout(() => {
+      trans.remove();
+      overlay.style.transition = ''; overlay.style.background = '';
+      overlay.style.display = 'none';
+      children.forEach(c => { c.style.visibility = ''; });
+      _finishCloseVideo();
+    }, 310);
+  } else {
+    // 无动画
+    if (slot) { slot.video.style.display = 'none'; slot.video.controls = false; }
+    overlay.style.display = 'none';
+    _finishCloseVideo();
+  }
+};
+
+function _finishCloseVideo() {
   gamePausedForVideo = false;
   _currentVideoUrl = null;
-
+  _videoStartRect = null; _videoThumbUrl = null;
   if (audioCtx && audioCtx.state === 'suspended' && audioResumed) audioCtx.resume();
   if (_animFrameId === null) { clock.getDelta(); animate(); }
-  // 恢复所有视频的后台预加载
   resumeAllPreloads();
-};
+}
 
 // 打卡检测+更新
 function updateCheckpoints(dt) {
