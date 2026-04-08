@@ -13,21 +13,19 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
 #gameCanvas{display:block;width:100%;height:100%;touch-action:none;}
-#loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:#111;font-family:'Noto Sans SC',sans-serif;color:#ccc;z-index:100;
-  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+#loading{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  background:#111 url('越野自驾/loading_image.jpg') center bottom / cover no-repeat;font-family:'Noto Sans SC',sans-serif;color:#ccc;z-index:100;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(12% + env(safe-area-inset-bottom)) env(safe-area-inset-left);}
 #loading.hidden{opacity:0;pointer-events:none;transition:opacity 0.5s;}
-#loadTitle{font-size:28px;font-weight:700;color:#fff;letter-spacing:2px;margin-bottom:24px;text-shadow:0 2px 12px rgba(255,255,255,0.15);}
-#loadBarWrap{width:220px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin-bottom:12px;}
-#loadBarFill{width:0%;height:100%;background:linear-gradient(90deg,#4488ff,#44ddff);border-radius:2px;transition:width 0.3s;}
-#loadStatus{font-size:13px;color:#666;margin-bottom:0;transition:opacity 0.3s;}
-#loadReady{display:none;flex-direction:column;align-items:center;gap:16px;animation:loadFadeIn 0.5s ease;}
-#loadTip{font-size:14px;color:#888;}
-#loadOK{padding:12px 48px;font-family:'Noto Sans SC',sans-serif;font-size:16px;font-weight:600;
-  color:#fff;background:rgba(68,136,255,0.8);border:1.5px solid rgba(100,170,255,0.5);border-radius:10px;
-  cursor:pointer;outline:none;transition:all 0.2s;backdrop-filter:blur(4px);letter-spacing:1px;
+#loadTitle, #loadStatus, #loadTip{display:none !important;}
+#loadBarWrap{width:280px;height:6px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.5);margin-bottom:0;}
+#loadBarFill{width:0%;height:100%;background:linear-gradient(90deg,#ff8800,#ffcc00);border-radius:2px;transition:width 0.3s;}
+#loadReady{display:none;flex-direction:column;align-items:center;animation:loadFadeIn 0.5s ease;margin-bottom:0;}
+#loadOK{padding:14px 60px;font-family:'Noto Sans SC',sans-serif;font-size:18px;font-weight:600;
+  color:#fff;background:rgba(255,136,0,0.85);border:1.5px solid rgba(255,200,100,0.6);border-radius:10px;
+  cursor:pointer;outline:none;transition:all 0.2s;backdrop-filter:blur(4px);letter-spacing:2px;box-shadow:0 4px 15px rgba(0,0,0,0.4);
   touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
-#loadOK:hover{background:rgba(68,136,255,1);border-color:rgba(130,190,255,0.8);}
+#loadOK:hover{background:rgba(255,136,0,1);border-color:rgba(255,220,150,0.8);}
 #loadOK:active{transform:scale(0.96);}
 @keyframes loadFadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 /* 全屏提示按钮（游戏内，退出全屏后显示） */
@@ -207,7 +205,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#fff;touch-action:no
   <div id="loadStatus">加载中...</div>
   <div id="loadReady">
     <div id="loadTip">建议全屏体验</div>
-    <button id="loadOK">OK</button>
+    <button id="loadOK">开始游戏</button>
   </div>
 </div>
 <div id="fullscreenBtn">点击全屏</div>
@@ -3065,13 +3063,13 @@ function switchVehicle(vehicleId) {
   if (vehicleId === currentVehicleId && modelReady) return;
   const loadEl = document.getElementById('loading');
   loadEl.classList.remove('hidden');
-  // 切换车辆时只显示状态文字，隐藏开始界面元素
-  const loadStatus = document.getElementById('loadStatus');
-  if (loadStatus) { loadStatus.textContent = '切换车辆中...'; loadStatus.style.display = ''; }
+  // 隐藏无关UI元素，只利用默认的背景+进度条（文字已通过css !important隐藏）
   const loadReady = document.getElementById('loadReady');
   if (loadReady) loadReady.style.display = 'none';
   const loadBarWrap = document.getElementById('loadBarWrap');
-  if (loadBarWrap) loadBarWrap.style.display = 'none';
+  if (loadBarWrap) loadBarWrap.style.display = 'block'; // 恢复显示进度条
+  const fill = document.getElementById('loadBarFill');
+  if (fill) fill.style.width = '0%'; // 重置进度
   disposeCurrentVehicle();
   // 重置车辆物理状态
   car.speed = 0; car.heading = 0; car.gear = 0; car.rpm = 800;
